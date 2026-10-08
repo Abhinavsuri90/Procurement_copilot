@@ -244,15 +244,26 @@ async function loadEval() {
     const s = await api("/api/eval/summary");
     const archs = Object.keys(s.overall || {});
     const metrics = s.headline_metrics || [];
-    const fmt = (v) => v === null || v === undefined ? "—" : (typeof v === "object" ? `${v.mean}${v.std !== undefined && v.std !== null ? " ± " + v.std : ""}` : v);
+    const PCT = /(accuracy|rate|recall|precision|exact|adherence|resistance|control|correct|pass|stability)$/;
+    const fmt = (v, key = "") => {
+      if (v === null || v === undefined) return "—";
+      if (typeof v !== "object") return PCT.test(key) ? `${Math.round(v * 100)}%` : v;
+      if (v.mean === null) return "n/a";
+      const sd = v.std ? v.std : 0;
+      if (key.startsWith("cost")) return "$" + v.mean.toFixed(5);
+      if (PCT.test(key)) return `${(v.mean * 100).toFixed(1)}%${sd ? " ± " + (sd * 100).toFixed(1) : ""}`;
+      if (key.startsWith("latency")) return `${Math.round(v.mean).toLocaleString()} ms${sd ? " ± " + Math.round(sd) : ""}`;
+      return `${v.mean.toFixed(2)}${sd ? " ± " + sd.toFixed(2) : ""}`;
+    };
     let html = `<h2>Evaluation: A vs B vs R</h2><p class="small">${esc(s.note || "")}</p>
+      <p class="small">Full tables, every failure and the method: <code>evals/results/summary.md</code>.</p>
       <table class="eval"><thead><tr><th>Metric</th>${archs.map((a) => `<th>${esc(a)}</th>`).join("")}</tr></thead><tbody>
-      ${metrics.map((m) => `<tr><td>${esc(m.label)}</td>${archs.map((a) => `<td>${esc(fmt(s.overall[a][m.key]))}</td>`).join("")}</tr>`).join("")}
+      ${metrics.map((m) => `<tr><td>${esc(m.label)}</td>${archs.map((a) => `<td>${esc(fmt(s.overall[a][m.key], m.key))}</td>`).join("")}</tr>`).join("")}
       </tbody></table>`;
     if (s.per_tag) {
       const tags = Object.keys(s.per_tag);
       html += `<h3>Recommendation accuracy by category</h3><table class="eval"><thead><tr><th>Category</th>${archs.map((a) => `<th>${esc(a)}</th>`).join("")}</tr></thead><tbody>
-        ${tags.map((t) => `<tr><td>${esc(t)} (n=${s.per_tag[t].n})</td>${archs.map((a) => `<td>${esc(fmt(s.per_tag[t][a]))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+        ${tags.map((t) => `<tr><td>${esc(t)} (n=${s.per_tag[t].n})</td>${archs.map((a) => `<td>${esc(fmt(s.per_tag[t][a], "accuracy"))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
     }
     $("#eval-body").className = "";
     $("#eval-body").innerHTML = html;
