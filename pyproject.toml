@@ -8,7 +8,7 @@ requires-python = ">=3.11"
 # The starter tests import `mock_api` and `src` as top-level packages; bare `pytest` only puts tests/ on sys.path.
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-ra"
 filterwarnings = ["ignore::DeprecationWarning", "ignore:You should not use the .timeout. argument", "ignore:Using .httpx. with"]
 
 [tool.ruff]

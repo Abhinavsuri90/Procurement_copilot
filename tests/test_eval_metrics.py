@@ -58,5 +58,5 @@ def test_case_file_covers_every_edge_category_three_times():
 
 def test_decision_memo_is_at_most_500_words():
     text = (ROOT / "docs" / "DECISION_MEMO.md").read_text(encoding="utf-8")
-    words = re.findall(r"[A-Za-z0-9][\w'%.,/-]*", re.sub(r"[|#*`-]{2,}", " ", text))
+    words = text.split()  # strict: table pipes and bullets count as words too
     assert len(words) <= 500, len(words)
