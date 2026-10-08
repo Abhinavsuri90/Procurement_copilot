@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from src.contracts import Architecture, EvidenceItem, ProcurementDecision, RunTelemetry
 from src.data_access import default_repository
-from src.orchestrator import analyze
+from src.orchestrator import analyze, representative_run
 from src.schemas import Decision
 
 
@@ -39,5 +39,6 @@ def handle_request(request_id: str, architecture: Architecture = "single") -> Pr
     deterministic checks, or orchestration strategy.
     """
     repo = default_repository()
-    result = analyze(repo.get_request(request_id), architecture, repo=repo, case_key=(request_id, 1))
+    result = analyze(repo.get_request(request_id), architecture, repo=repo,
+                     case_key=(request_id, representative_run(architecture, request_id)))
     return to_procurement_decision(result.decision)

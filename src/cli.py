@@ -7,7 +7,7 @@ import json
 import sys
 
 from src.data_access import default_repository
-from src.orchestrator import analyze
+from src.orchestrator import analyze, representative_run
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -15,7 +15,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("analyze", help="analyse one request")
     run.add_argument("request_id")
-    run.add_argument("--arch", default="A", help="A|single, B|staged, R|rules")
+    run.add_argument("--arch", default="B", help="B|staged (shipped default), A|single, R|rules")
     run.add_argument("--fault", choices=["down", "slow", "flaky"], help="inject a vendor-service fault")
     run.add_argument("--json", action="store_true", help="print the full decision as JSON")
     run.add_argument("--trace", action="store_true", help="also print the call trace")
@@ -32,7 +32,8 @@ def main(argv: list[str] | None = None) -> int:
     except KeyError as exc:
         print(exc, file=sys.stderr)
         return 2
-    result = analyze(request, args.arch, repo=repo, fault=args.fault, case_key=(args.request_id, 1))
+    result = analyze(request, args.arch, repo=repo, fault=args.fault,
+                     case_key=(args.request_id, representative_run(args.arch, args.request_id)))
     d = result.decision
     if args.json:
         print(json.dumps(d.model_dump(mode="json"), indent=2))

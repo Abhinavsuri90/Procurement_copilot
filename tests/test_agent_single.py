@@ -194,3 +194,38 @@ def test_next_step_owner_must_fit_the_recommendation():
     d = result.decision
     assert d.recommendation == Recommendation.USE_EXISTING_TOOL
     assert d.next_step.owner_role == "Procurement" and d.meta.guardrails["next_step_replaced"] is True
+
+
+def test_record_ids_must_be_real_ids_not_json_keys_or_fragments():
+    fake = [{"id": "X1", "claim": "Budget looks fine", "source_tool": "check_budget", "call_id": "c2",
+             "record_ids": ["data"], "value": ""},
+            {"id": "X2", "claim": "Policy tier", "source_tool": "evaluate_policy", "call_id": "c5",
+             "record_ids": ["POL-4"], "value": ""}]
+    result, _ = run("REQ-1001", [gather("REQ-1001", "E004", "Finance", 800, "SignFlow"),
+                                 submit(draft(approvals=[("Manager", "POL-4.T1")], evidence=fake))])
+    assert {r["id"] for r in result.decision.meta.guardrails["ungrounded_removed"]} == {"X1", "X2"}
+
+
+def test_unsupported_redirect_escalates_instead_of_approving():
+    result, _ = run("REQ-1008", [gather("REQ-1008", "E001", "Marketing", 8000, "TaskFlow"),
+                                 submit(draft("use_existing_tool"))])
+    d = result.decision
+    assert d.recommendation == Recommendation.ESCALATE_TO_HUMAN and d.human_handoff.required
+
+
+def test_escalation_always_comes_with_a_handoff():
+    result, _ = run("REQ-1001", [gather("REQ-1001", "E004", "Finance", 800, "SignFlow"),
+                                 submit(draft("escalate_to_human", approvals=[("Manager", "POL-4.T1")]))])
+    d = result.decision
+    assert d.recommendation == Recommendation.ESCALATE_TO_HUMAN and d.human_handoff.required
+
+
+def test_no_key_outage_demo_does_not_pretend_to_replay(tmp_path, monkeypatch):
+    import dataclasses
+
+    from src.config import get_settings
+    settings = dataclasses.replace(get_settings(), llm_mode="live", llm_api_key="")
+    d = analyze(REPO.get_request("REQ-1001"), "B", repo=REPO, http=HTTP, settings=settings, fault="down",
+                case_key=("REQ-1001", 1)).decision
+    assert d.meta.deterministic_only and not d.meta.replayed
+    assert any("simulated fault" in w for w in d.meta.warnings)

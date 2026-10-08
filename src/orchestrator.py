@@ -8,16 +8,19 @@ Architectures share everything except orchestration (controlled experiment):
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
+from collections import Counter
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 import httpx
 
 from src.agents.guardrails import deterministic_decision, finalize
 from src.agents.llm import Cassette, CassetteMismatch, LLMSession, OpenAICompatBackend
-from src.config import Settings, get_settings
+from src.config import ROOT, Settings, get_settings
 from src.data_access import Repository
 from src.policy.engine import PolicyResult, evaluate
 from src.policy.facts import Facts, collect_facts
@@ -62,8 +65,31 @@ def _policy(ctx: RunContext) -> tuple[Facts, PolicyResult, str]:
     return facts, evaluate(facts), call.call_id
 
 
+@lru_cache(maxsize=1)
+def _recorded_runs() -> dict[tuple[str, str], list[tuple[int, str, bool]]]:
+    path = ROOT / "evals" / "results" / "results.json"
+    out: dict[tuple[str, str], list[tuple[int, str, bool]]] = {}
+    if path.is_file():
+        for row in json.loads(path.read_text(encoding="utf-8")):
+            d = row["decision"]
+            out.setdefault((row["architecture"], row["case_id"]), []).append(
+                (row["run"], d["recommendation"], bool(d["meta"].get("deterministic_only"))))
+    return out
+
+
+def representative_run(architecture: str, case_id: str) -> int:
+    """For offline demos: a recorded run with the most common recommendation across runs (not the best one),
+    preferring one where the agent actually answered over a fail-safe; ties go to the earliest run."""
+    runs = sorted(_recorded_runs().get((normalize_arch(architecture), case_id), []))
+    if not runs:
+        return 1
+    counts = Counter(rec for _, rec, _ in runs)
+    majority = [r for r in runs if counts[r[1]] == max(counts.values())]
+    return min(majority, key=lambda r: (r[2], r[0]))[0]
+
+
 def make_session(settings: Settings, ctx: RunContext, arch: str, case_key: tuple[str, int] | None,
-                 backend: Any = None) -> tuple[LLMSession | None, str | None]:
+                 backend: Any = None, fault: str | None = None) -> tuple[LLMSession | None, str | None]:
     """Pick live / record / replay. Returns (None, reason) when no model can be used for this run.
 
     Without an API key, a request that has a recorded run (the committed eval cassettes) is replayed, so the
@@ -71,7 +97,10 @@ def make_session(settings: Settings, ctx: RunContext, arch: str, case_key: tuple
     """
     cassette = Cassette.for_key(settings.cassette_dir, arch, *case_key) if case_key else None
     mode = settings.llm_mode
-    if mode == "replay" or (mode == "live" and backend is None and not settings.llm_configured):
+    implicit_replay = mode == "live" and backend is None and not settings.llm_configured
+    if implicit_replay and fault:
+        return None, "ai_unavailable: no LLM key - a recorded run cannot be replayed with a simulated fault"
+    if mode == "replay" or implicit_replay:
         if cassette is not None and cassette.exists():
             cassette.load()
             return LLMSession(None, cassette.model or settings.llm_model, settings.llm_temperature, ctx.trace,
@@ -100,7 +129,7 @@ def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Reposito
         facts, policy, policy_cid = _policy(ctx)
         decision = deterministic_decision(ctx, facts, policy, policy_cid, architecture=ARCH_LABELS[arch], model=model)
     else:
-        session, unavailable = make_session(settings, ctx, arch, case_key, backend)
+        session, unavailable = make_session(settings, ctx, arch, case_key, backend, fault=ctx.fault)
         model = session.model if session else (settings.llm_model or "none")
         draft, failure = None, unavailable
         if session is not None:
@@ -109,6 +138,7 @@ def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Reposito
             except CassetteMismatch as exc:
                 failure = f"ai_unavailable: {exc}"
                 warnings.append(str(exc))
+                session = None  # nothing was replayed: report this run's own latency and replayed=False
         facts, policy, policy_cid = _policy(ctx)
         if draft is None:
             decision = deterministic_decision(ctx, facts, policy, policy_cid, architecture=ARCH_LABELS[arch],
@@ -119,7 +149,7 @@ def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Reposito
             decision = finalize(ctx, draft, facts, policy, policy_cid, architecture=ARCH_LABELS[arch], model=model)
 
     meta = decision.meta
-    meta.llm_calls = len(ctx.trace.llm_calls)
+    meta.llm_calls = sum(1 for c in ctx.trace.llm_calls if c.ok)
     meta.tool_calls = sum(1 for r in ctx.trace.tool_results.values() if r.tool != "purchase_request")
     meta.tool_names = [n for n in ctx.trace.tool_names if n != "purchase_request"]
     meta.tokens_in, meta.tokens_out = ctx.trace.tokens
