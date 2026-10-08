@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from agent_helpers import HTTP, REPO
+
 from src.contracts import ProcurementDecision
 from src.orchestrator import analyze
 from src.solution import handle_request, to_procurement_decision
