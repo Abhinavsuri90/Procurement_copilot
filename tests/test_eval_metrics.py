@@ -48,7 +48,7 @@ def test_aggregate_and_stability():
 
 def test_case_file_covers_every_edge_category_three_times():
     cases = load_cases()
-    assert 25 <= len(cases) <= 35
+    assert 25 <= len(cases) <= 40
     for tag in ("incomplete", "existing_tool", "vendor_conflict", "security_threshold", "injection", "tool_unavailable"):
         assert sum(tag in c["tags"] for c in cases) >= 3, tag
     assert {c["starter_request_id"] for c in cases if c.get("starter_request_id") and "starter" in c["tags"]} == \

@@ -565,3 +565,36 @@ cases:
     next_owner_role: [Security]
   rationale: "Source-code access with the vendor status unverifiable; data region also unverifiable -> Privacy (A6)."
   policy_refs: [POL-10.UNAVAILABLE, POL-5.DATA, POL-6.REGION]
+
+# ------------------------------------------------------------------ added after the first results (see LABEL_CHANGES.md)
+- id: S-BLK-01
+  tags: [synthetic, vendor_risk, policy_block]
+  request: {request_id: S-BLK-01, requester_id: E001, product_name: ShadowSync File Share, vendor_name: ShadowSync,
+            category: File Sharing, annual_cost_usd: 3000, user_count: 10,
+            business_justification: Share large campaign assets with external agencies.,
+            data_access_level: internal_marketing, requested_integrations: [], urgency: normal}
+  fixtures:
+    vendors: [{vendor_id: V909, vendor_name: ShadowSync, <<: *approved_vendor, procurement_status: Rejected, security_status: Rejected}]
+    vendor_risk: {ShadowSync: {<<: *approved_risk, security_review_status: rejected, risk_level: high}}
+  expected:
+    recommendation: recommend_reject
+    acceptable: [escalate_to_human]
+    approvals: [Department Head, Procurement]
+    must_flag: [vendor_rejected]
+    handoff_required: true
+    next_owner_role: [Procurement, Security]
+  rationale: "Vendor's security assessment was rejected by both sources - a hard block under assumption A5; the copilot may recommend rejection or escalate, never approve."
+  policy_refs: [POL-5.VENDOR_REJECTED, POL-4.T2]
+
+- id: S-LLM-01
+  tags: [synthetic, llm_unavailable, llm_only]
+  starter_request_id: REQ-1003
+  llm_fault: down
+  expected:
+    recommendation: escalate_to_human
+    approvals: [Department Head, Finance, Procurement, Security]
+    must_flag: [ai_unavailable, security_review_required]
+    handoff_required: true
+    next_owner_role: [Security]
+  rationale: "Model provider down: the decision falls back to deterministic checks and is handed to a human; without the AI's judgement nothing is routed as approvable."
+  policy_refs: [POL-11.HUMAN, POL-4.T3, POL-5.DATA]
