@@ -12,11 +12,12 @@ REQUIRED_MODULES = [
     "fastapi",
     "uvicorn",
     "pydantic",
-    "pandas",
     "requests",
     "dotenv",
     "streamlit",
     "httpx",
+    "yaml",
+    "openai",
 ]
 
 
@@ -119,6 +120,7 @@ def check_contract_and_evals() -> None:
 
 def check_mock_api() -> None:
     from fastapi.testclient import TestClient
+
     from mock_api.app import app
 
     client = TestClient(app)

@@ -1,7 +1,11 @@
+.env
 .venv/
+var/
+evals/runs/
+evals/results_*.csv
 __pycache__/
 *.pyc
-.env
-.DS_Store
 .pytest_cache/
-evals/results_*.csv
+.ruff_cache/
+node_modules/
+.DS_Store

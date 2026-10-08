@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import unittest
+
 from fastapi.testclient import TestClient
+
 from mock_api.app import app
 
 

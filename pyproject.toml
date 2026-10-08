@@ -9,7 +9,7 @@ requires-python = ">=3.11"
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-q"
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore:You should not use the .timeout. argument", "ignore:Using .httpx. with"]
 
 [tool.ruff]
 line-length = 120
@@ -18,4 +18,8 @@ extend-exclude = [".starter_pristine", ".venv", "var"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
-ignore = ["E501"]
+ignore = ["E501", "UP042"]
+
+[tool.ruff.lint.per-file-ignores]
+"verify_setup.py" = ["UP036"]
+"evals/run_public_evals.py" = ["E402", "E702"]  # starter harness, kept as provided
