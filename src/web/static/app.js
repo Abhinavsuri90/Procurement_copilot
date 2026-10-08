@@ -59,6 +59,7 @@ const statusClass = (s) => ({"Approved": "ok", "Rejected": "bad", "Awaiting huma
 // ---------------------------------------------------------------- request detail
 async function selectRequest(id) {
   state.selected = id;
+  if (location.hash !== "#" + id) history.replaceState(null, "", "#" + encodeURIComponent(id));
   renderQueue();
   state.detail = await api(`/api/requests/${encodeURIComponent(id)}`);
   state.run = state.detail.latest_run;
@@ -140,7 +141,7 @@ function renderDecision() {
 
     <h3>Next step</h3>
     <p class="next"><span class="chip info">${esc(d.next_step.owner_role)}</span> <b>${esc(d.next_step.action)}</b> — ${esc(d.next_step.detail)}</p>
-    ${d.human_handoff.required ? `<p class="handoff">Human handoff → <b>${esc(d.human_handoff.assigned_role)}</b>: ${esc(d.human_handoff.decision_needed)}<br><small>${d.human_handoff.reasons.map(esc).join(" · ")}</small></p>` : ""}
+    ${d.human_handoff.required ? `<p class="handoff">Human handoff → <b>${esc(d.human_handoff.assigned_role)}</b>: ${esc(d.human_handoff.decision_needed)}<br><small>${[...new Set(d.human_handoff.reasons.map((r) => r.replace(/^agent: /, "")))].map(esc).join(" · ")}</small></p>` : ""}
 
     <h3>Approvals required (${d.approvals_required.length})</h3>
     <ul class="list">${d.approvals_required.map((a) => `<li><b>${esc(a.role)}</b> <span class="chip rule">${esc(a.rule_id)}</span> <span class="tag">${a.source === "agent" ? "agent" : "policy engine"}</span><br><small>${esc(a.reason)}</small></li>`).join("")}</ul>
@@ -311,6 +312,12 @@ $("#new-form").addEventListener("submit", (e) => {
   }
 });
 
+window.addEventListener("hashchange", () => { const id = decodeURIComponent(location.hash.slice(1)); if (id) selectRequest(id); });
+
 loadHealth();
-loadQueue();
+loadQueue().then(() => {
+  const id = decodeURIComponent(location.hash.slice(1));  // deep link: /#REQ-1007 opens that request
+  if (id === "evaluation") switchView("eval");
+  else if (id) selectRequest(id).catch(() => {});
+});
 setInterval(loadHealth, 15000);

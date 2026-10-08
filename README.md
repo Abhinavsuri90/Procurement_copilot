@@ -10,6 +10,8 @@
 
 ## 1. Overview
 
+![Review screen: workflow strip, request queue, request details and the decision panel for REQ-1007](docs/img/ui-req-1007.png)
+
 Employees request new software; Procurement must check existing tools, team budget, vendor risk, security/privacy
 requirements and approval rules. The copilot does the evidence gathering and drafts the recommendation; code decides
 everything a rule can decide; a human makes the call.
@@ -281,9 +283,9 @@ every failure, a hard-coded launcher port, the unimplemented adapter, and a depe
   not changed, but some overfitting risk remains. A held-out set of real requests is the next step.
 - **Injection scanner is pattern-based:** it catches the tested phrasings; a novel phrasing could pass the scanner.
   The outcome stays safe because policy facts never come from free text and guardrails bound what the agent can do.
-- **UI verification:** exercised through API tests, the launcher test and a JS syntax check; no automated browser
-  test or screenshot was produced in this environment. The workflow strip animates on request/response rather than
-  streaming live tool calls.
+- **UI verification:** exercised through API tests, the launcher test, a JS syntax check and a headless-Chrome
+  render (the screenshot above); there are no automated browser-interaction tests. The workflow strip animates on
+  request/response rather than streaming live tool calls.
 - **Simulated identity:** the reviewer role is a selector, not authentication; no RBAC.
 - **Next steps:** a single-agent variant with an explicit fit-check step; a larger real-request eval set; async
   analysis on submission; auth/RBAC; seat-utilisation data; monitoring of override rate and groundedness in production.

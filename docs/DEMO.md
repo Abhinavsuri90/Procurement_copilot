@@ -2,7 +2,8 @@
 
 Start: `python start.py` → http://localhost:8000. Works with or without `LLM_API_KEY` (without a key, starter requests
 replay their recorded evaluation run and show a "replayed" banner). Use the **Architecture** selector in the header to
-switch between A (single agent), B (staged) and R (rules only).
+switch between A (single agent), B (staged) and R (rules only). Deep links open a request directly:
+http://localhost:8000/#REQ-1007 (or `#evaluation` for the evaluation view).
 
 | # | Open | Click | What to point out |
 |---|---|---|---|
