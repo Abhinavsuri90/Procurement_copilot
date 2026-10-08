@@ -196,9 +196,9 @@ class DraftNextStep(BaseModel):
 
 class DraftHandoff(BaseModel):
     required: bool = Field(description="True when a human reviewer must look at this beyond routine sign-off")
-    assigned_role: str
+    assigned_role: str = Field(default="Procurement", description="Role that should review: " + ", ".join(APPROVER_ROLES))
     reasons: list[str] = Field(default_factory=list)
-    decision_needed: str = Field(description="The specific question the human must decide")
+    decision_needed: str = Field(default="", description="The specific question the human must decide")
 
 
 class AgentDecisionDraft(BaseModel):
