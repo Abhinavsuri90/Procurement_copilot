@@ -1,0 +1,21 @@
+[project]
+name = "procurement-copilot"
+version = "1.0.0"
+description = "AI procurement request copilot: tool-using agent, deterministic policy engine, human-in-the-loop review"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+# The starter tests import `mock_api` and `src` as top-level packages; bare `pytest` only puts tests/ on sys.path.
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [".starter_pristine", ".venv", "var"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
