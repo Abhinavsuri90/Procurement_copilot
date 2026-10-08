@@ -55,3 +55,12 @@ def test_staged_reviewer_cannot_approve_an_escalation():
     d = analyze(REPO.get_request("REQ-1007"), "B", repo=REPO, http=HTTP, backend=backend).decision
     assert d.recommendation == Recommendation.ESCALATE_TO_HUMAN and d.overrides
     assert {"conflicting_vendor_evidence", "vendor_review_expired"} <= {f.code for f in d.risk_flags}
+
+
+def test_staged_model_outage_is_labelled_ai_unavailable():
+    from src.agents.llm import LLMError
+
+    backend = ScriptedBackend([LLMError("HTTP 503: upstream unavailable")])
+    d = analyze(REPO.get_request("REQ-1001"), "B", repo=REPO, http=HTTP, backend=backend).decision
+    codes = {f.code for f in d.risk_flags}
+    assert "ai_unavailable" in codes and "agent_output_invalid" not in codes and d.human_handoff.required

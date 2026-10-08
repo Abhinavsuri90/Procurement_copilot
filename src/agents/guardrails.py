@@ -55,6 +55,25 @@ def _numbers(text: str) -> set[float]:
     return out
 
 
+def _string_values(node: Any) -> list[str]:
+    """Every string value in a JSON-like structure (dict keys excluded)."""
+    if isinstance(node, str):
+        return [node]
+    if isinstance(node, dict):
+        return [v for value in node.values() for v in _string_values(value)]
+    if isinstance(node, list):
+        return [v for value in node for v in _string_values(value)]
+    return []
+
+
+def _id_present(rid: str, values: list[str]) -> bool:
+    """A record ID must look like one (contain a digit or ':') and appear as a whole value or a whole token."""
+    if not re.search(r"[0-9:]", rid):
+        return False
+    token = re.compile(rf"(?<![\w:.-]){re.escape(rid)}(?![\w-]|[.:]\w)")
+    return any(v == rid or token.search(v) for v in values)
+
+
 def check_grounded(item: DraftEvidence, trace: Trace) -> str | None:
     """None if grounded, else the reason it is not."""
     result = trace.tool_results.get(item.call_id.strip())
@@ -62,9 +81,10 @@ def check_grounded(item: DraftEvidence, trace: Trace) -> str | None:
         return f"call_id '{item.call_id}' is not in this run's trace"
     if item.source_tool.strip() != result.tool:
         return f"source_tool '{item.source_tool}' does not match {result.call_id} ({result.tool})"
-    blob = json.dumps({"data": result.data, "error": result.error.model_dump() if result.error else None,
-                       "args": result.args}, ensure_ascii=False, default=str)
-    missing = [rid for rid in item.record_ids if rid.strip() and rid.strip() not in blob]
+    payload = {"data": result.data, "error": result.error.model_dump() if result.error else None, "args": result.args}
+    blob = json.dumps(payload, ensure_ascii=False, default=str)
+    values = _string_values(payload)
+    missing = [rid for rid in item.record_ids if rid.strip() and not _id_present(rid.strip(), values)]
     if missing:
         return f"record IDs {missing} not in {result.call_id} output"
     if result.ok and not [r for r in item.record_ids if r.strip()]:
@@ -187,7 +207,8 @@ def deterministic_decision(ctx: RunContext, facts: Facts, policy: PolicyResult, 
     flags = _policy_flags(policy)
     extra: list[str] = []
     if failsafe:
-        code = "ai_unavailable" if failsafe.startswith(("ai_unavailable", "llm_error")) else "agent_output_invalid"
+        # B prefixes stage names ("analyst llm_error: ..."), so match the cause anywhere in the message.
+        code = "ai_unavailable" if any(c in failsafe for c in ("ai_unavailable", "llm_error")) else "agent_output_invalid"
         flags.append(RiskFlag(code=code, severity="high", detail=f"AI analysis unavailable ({failsafe}); "
                               "deterministic checks only", source="deterministic"))
         extra.append(f"{code}: deterministic checks only")
@@ -281,9 +302,11 @@ def finalize(ctx: RunContext, draft: AgentDecisionDraft, facts: Facts, policy: P
                                   reason="no policy block exists; rejection is a human judgement"))
         rec = Recommendation.ESCALATE_TO_HUMAN
     elif rec == Recommendation.USE_EXISTING_TOOL and not any(e.source_tool == "search_existing_tools" for e in grounded):
-        overrides.append(Override(field="recommendation", agent_value=rec.value, final_value=det.value,
+        # The agent judged the purchase unnecessary but could not show why: a human decides, never auto-route.
+        fallback = det if det != Recommendation.RECOMMEND_APPROVE else Recommendation.ESCALATE_TO_HUMAN
+        overrides.append(Override(field="recommendation", agent_value=rec.value, final_value=fallback.value,
                                   reason="no grounded catalog evidence supports the existing-tool redirect"))
-        rec = det
+        rec = fallback
 
     # 4 escalation floor + 7 injection
     reasons = list(policy.handoff_reasons)
@@ -293,6 +316,8 @@ def finalize(ctx: RunContext, draft: AgentDecisionDraft, facts: Facts, policy: P
         reasons.append("agent recommendation disagreed with policy and was overridden")
     if facts.injection_hits and not any("prompt_injection_detected" in r for r in reasons):
         reasons.append("high risk flag: prompt_injection_detected")
+    if rec != Recommendation.RECOMMEND_APPROVE and rec != Recommendation.USE_EXISTING_TOOL and not reasons:
+        reasons.append(f"recommendation is {rec.value}")
     required = bool(reasons)
     role = policy.handoff_role if policy.handoff_required else (
         draft.human_handoff.assigned_role if draft.human_handoff.assigned_role in OWNER_ROLES else "Procurement")
