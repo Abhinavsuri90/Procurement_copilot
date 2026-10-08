@@ -32,7 +32,7 @@ def venv_python() -> Path:
     return VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def ensure_environment(skip_install: bool) -> None:
+def ensure_environment() -> None:
     """Make sure we run inside .venv with current requirements; re-launch this script there if not."""
     if sys.version_info < (3, 11):
         sys.exit(f"Python 3.11+ required (found {sys.version.split()[0]})")
@@ -41,7 +41,7 @@ def ensure_environment(skip_install: bool) -> None:
         venv.create(VENV, with_pip=True)
     stamp = VENV / ".requirements.sha256"
     digest = hashlib.sha256(REQUIREMENTS.read_bytes()).hexdigest()
-    if not skip_install and (not stamp.exists() or stamp.read_text().strip() != digest):
+    if not stamp.exists() or stamp.read_text().strip() != digest:
         print("Installing requirements (first run only) ...")
         subprocess.check_call([str(venv_python()), "-m", "pip", "install", "-q", "--disable-pip-version-check",
                                "-r", str(REQUIREMENTS)])
@@ -77,9 +77,11 @@ def wait_healthy(url: str, proc: subprocess.Popen, name: str, timeout: float = 3
 def main() -> int:
     parser = argparse.ArgumentParser(description="Start the procurement copilot")
     parser.add_argument("--check", action="store_true", help="start, verify health, then stop")
-    parser.add_argument("--no-install", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--no-install", action="store_true",
+                        help="use the current interpreter as-is (no .venv, no pip install)")
     args = parser.parse_args()
-    ensure_environment(args.no_install)
+    if not args.no_install:
+        ensure_environment()
 
     os.chdir(ROOT)
     sys.path.insert(0, str(ROOT))
