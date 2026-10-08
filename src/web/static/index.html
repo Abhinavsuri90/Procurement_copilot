@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Procurement Request Copilot</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Procurement Request Copilot</div>
+  <nav class="views" role="tablist" aria-label="Views">
+    <button role="tab" id="tab-review" class="view-tab active" aria-selected="true">Review requests</button>
+    <button role="tab" id="tab-eval" class="view-tab" aria-selected="false">Evaluation</button>
+  </nav>
+  <div class="controls">
+    <label class="ctl">Architecture
+      <select id="arch">
+        <option value="A">A · single agent</option>
+        <option value="B">B · staged (2 agents)</option>
+        <option value="R">R · rules only</option>
+      </select>
+    </label>
+    <label class="ctl switch"><input type="checkbox" id="outage"> Simulate vendor outage</label>
+    <span class="pill" id="model-pill" title="LLM">model …</span>
+    <span class="pill" id="vendor-pill" title="Vendor-risk service"><span class="dot" id="vendor-dot"></span>vendor service</span>
+  </div>
+</header>
+
+<main id="view-review" class="layout">
+  <!-- Left: request queue -->
+  <aside class="queue" aria-label="Request queue">
+    <div class="queue-head">
+      <input id="search" type="search" placeholder="Search requests" aria-label="Search requests">
+      <select id="status-filter" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option>New</option><option>Analyzed</option><option>Awaiting human</option><option>Approved</option>
+        <option>Rejected</option><option>Info requested</option><option>Escalated</option>
+      </select>
+      <button id="new-btn" class="btn secondary">+ New request</button>
+    </div>
+    <ul id="queue-list" class="queue-list"></ul>
+  </aside>
+
+  <!-- Centre: workflow, request details, trace -->
+  <section class="centre" aria-label="Request">
+    <ol class="workflow" id="workflow" aria-label="Workflow">
+      <li data-step="request">1 Employee request</li>
+      <li data-step="understand">2 Understand need</li>
+      <li data-step="evidence">3 Gather evidence<small>budget · existing tools · vendor risk · policy</small></li>
+      <li data-step="recommend">4 Recommend next action</li>
+      <li data-step="human">5 Human review</li>
+    </ol>
+    <div id="empty-centre" class="empty">Select a request from the queue, or create a new one.</div>
+    <div id="request-pane" hidden>
+      <div class="pane-head">
+        <h2 id="req-title"></h2>
+        <span class="chip" id="req-status"></span>
+        <button id="run-btn" class="btn primary">Run copilot</button>
+      </div>
+      <div class="subtabs" role="tablist">
+        <button role="tab" class="subtab active" data-tab="details">Request details</button>
+        <button role="tab" class="subtab" data-tab="trace">Trace</button>
+        <button role="tab" class="subtab" data-tab="audit">Audit timeline</button>
+      </div>
+      <div id="tab-details" class="tabpane"></div>
+      <div id="tab-trace" class="tabpane" hidden></div>
+      <div id="tab-audit" class="tabpane" hidden></div>
+    </div>
+  </section>
+
+  <!-- Right: decision panel + human controls -->
+  <section class="decision" aria-label="Recommendation" aria-live="polite">
+    <div id="decision-empty" class="empty">No recommendation yet. Run the copilot to gather evidence.</div>
+    <div id="decision-body" hidden></div>
+    <form id="human-form" class="human" hidden>
+      <h3>Human decision</h3>
+      <label>Reviewer role <select id="reviewer-role"></select></label>
+      <label>Reason <textarea id="reason" rows="2" placeholder="Required when you override the recommendation"></textarea></label>
+      <label id="exception-wrap" hidden>Exception reason (policy block)<textarea id="exception" rows="2"></textarea></label>
+      <div class="actions">
+        <button type="button" class="btn ok" data-action="approve">Approve</button>
+        <button type="button" class="btn bad" data-action="reject">Reject</button>
+        <button type="button" class="btn secondary" data-action="request_info">Request info</button>
+        <button type="button" class="btn warn" data-action="escalate">Escalate</button>
+      </div>
+      <p class="form-msg" id="form-msg" role="status"></p>
+    </form>
+  </section>
+</main>
+
+<main id="view-eval" class="eval-view" hidden>
+  <div id="eval-body" class="empty">Loading evaluation results…</div>
+</main>
+
+<dialog id="new-dialog">
+  <form id="new-form" method="dialog" class="new-form">
+    <h3>New purchase request</h3>
+    <label>Requester ID<input name="requester_id" required placeholder="E001"></label>
+    <label>Product<input name="product_name" required></label>
+    <label>Vendor<input name="vendor_name" required></label>
+    <label>Category<input name="category"></label>
+    <label>Annual cost (USD)<input name="annual_cost_usd" type="number" min="0" step="0.01"></label>
+    <label>Users / licences<input name="user_count" type="number" min="1"></label>
+    <label>Data access level
+      <select name="data_access_level">
+        <option value="">unknown</option><option>none</option><option>internal_documents</option>
+        <option>internal_marketing</option><option>confidential_documents</option><option>customer_pii</option>
+        <option>employee_pii</option><option>source_code</option><option>production_telemetry</option>
+      </select></label>
+    <label>Integrations (comma-separated)<input name="requested_integrations" placeholder="SSO, CRM"></label>
+    <label class="wide">Business justification<textarea name="business_justification" rows="3"></textarea></label>
+    <p class="form-msg bad-t wide" id="new-msg" role="status"></p>
+    <div class="actions wide">
+      <button value="cancel" class="btn secondary" formnovalidate>Cancel</button>
+      <button value="create" class="btn primary" id="create-btn">Create</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="raw-dialog">
+  <div class="raw-head"><h3 id="raw-title"></h3><button class="btn secondary" id="raw-close">Close</button></div>
+  <pre id="raw-body"></pre>
+</dialog>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
