@@ -70,8 +70,9 @@ def normalize_args(name: str, raw_args: dict[str, Any]) -> dict[str, Any]:
     return REGISTRY[name].args_model.model_validate(raw_args).model_dump(exclude_none=True)
 
 
-def execute(ctx: RunContext, name: str, raw_args: dict[str, Any] | None, caller: str = "agent") -> ToolResult:
-    call_id = ctx.trace.next_tool_id()
+def execute(ctx: RunContext, name: str, raw_args: dict[str, Any] | None, caller: str = "agent",
+            call_id: str | None = None) -> ToolResult:
+    call_id = call_id or ctx.trace.next_tool_id()
     start = time.perf_counter()
     spec = REGISTRY.get(name)
     args: dict[str, Any] = dict(raw_args or {})
