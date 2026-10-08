@@ -22,4 +22,5 @@ ignore = ["E501", "UP042"]
 
 [tool.ruff.lint.per-file-ignores]
 "verify_setup.py" = ["UP036"]
+"start.py" = ["UP036"]  # the version guard is the point: it runs before the venv exists
 "evals/run_public_evals.py" = ["E402", "E702"]  # starter harness, kept as provided

@@ -12,9 +12,7 @@ REQUIRED_MODULES = [
     "fastapi",
     "uvicorn",
     "pydantic",
-    "requests",
     "dotenv",
-    "streamlit",
     "httpx",
     "yaml",
     "openai",
@@ -144,7 +142,7 @@ def main() -> None:
     check_contract_and_evals()
     check_mock_api()
     print("\nPRE-FLIGHT PASSED")
-    print("Next: copy .env.example to .env, add your model credentials, then run: python run_local.py")
+    print("Next: copy .env.example to .env, add your model credentials, then run: python start.py")
 
 
 if __name__ == "__main__":
