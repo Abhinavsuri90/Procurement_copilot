@@ -1,0 +1,95 @@
+# Procurement policy encoded as data. Source of truth: data/procurement_policy.md (policy version 2026.09).
+# The engine (src/policy/engine.py) reads every threshold, data class and approver from this file.
+# Each rule has a stable ID that approvals, flags and evidence cite. Ambiguities are resolved conservatively
+# and listed in docs/ASSUMPTIONS.md (A-numbers below).
+policy_version: "2026.09"
+source: data/procurement_policy.md
+
+required_fields:   # §1 Required request information - all blocking: "not ready for approval if missing"
+  - {field: requester_id, rule_id: POL-1.REQUESTER, label: requester and department}
+  - {field: vendor_name, rule_id: POL-1.VENDOR, label: vendor}
+  - {field: product_name, rule_id: POL-1.PRODUCT, label: product}
+  - {field: annual_cost_usd, rule_id: POL-1.COST, label: annual cost or a reasonable annual estimate}
+  - {field: user_count, rule_id: POL-1.USERS, label: number of users/licenses}
+  - {field: business_justification, rule_id: POL-1.PURPOSE, label: business purpose}
+  - {field: data_access_level, rule_id: POL-1.DATA, label: intended data-access level}
+  - {field: requested_integrations, rule_id: POL-1.INTEGRATIONS, label: required integrations}
+
+thresholds:        # §4 Financial approval thresholds - "Up to $1,000" includes $1,000.00 exactly
+  - {rule_id: POL-4.T1, max_usd: 1000, approvers: [Manager], label: "Up to $1,000"}
+  - {rule_id: POL-4.T2, max_usd: 10000, approvers: [Department Head, Procurement], label: "$1,000.01 - $10,000"}
+  - {rule_id: POL-4.T3, max_usd: 25000, approvers: [Department Head, Finance, Procurement], label: "$10,000.01 - $25,000"}
+  - {rule_id: POL-4.T4, max_usd: null, approvers: [Department Head, Finance, CFO, Procurement], label: "Above $25,000"}
+senior_approver: CFO        # reaching the CFO tier forces a human handoff (escalation floor)
+
+budget:            # §2 Budget check - "exceeds" means cost > available (A2)
+  exceeded: {rule_id: POL-2.BUDGET_EXCEEDED, approver: Finance, flag: budget_insufficient}
+  unverified: {rule_id: POL-2.BUDGET_UNVERIFIED, approver: Finance, flag: budget_unverified}
+
+overlap:           # §3 Existing software / overlap - surfaced, never an automatic rejection
+  rule_id: POL-3.OVERLAP
+  flag: existing_tool_overlap
+
+security:          # §5 Security review
+  rule_ids: {data: POL-5.DATA, integration: POL-5.INTEGRATION, unknown_data: POL-5.UNKNOWN_DATA,
+             assessment: POL-5.ASSESSMENT, expired: POL-5.EXPIRED, conflict: POL-5.CONFLICT,
+             unavailable: POL-10.UNAVAILABLE}
+  data_classes: [source_code, customer_pii, employee_pii, confidential_documents, credentials, secrets,
+                 production_data, production_telemetry, production_access, cloud_account]
+  integration_keywords: [production, prod, cloud account, aws, azure, gcp, kubernetes, k8s, database, credentials,
+                         secrets, vault]
+  assessment_validity_days: 365   # A3: current on days 0..364 after the review date
+non_sensitive_data_classes: [none, public, internal, internal_documents, internal_marketing, marketing, internal_only]
+
+privacy:           # §6 Privacy review
+  rule_ids: {pii: POL-6.PII, region: POL-6.REGION}
+  pii_data_classes: [customer_pii, employee_pii]
+
+legal:             # §7 Legal review
+  rule_ids: {new_vendor_spend: POL-7.NEW_VENDOR, terms: POL-7.TERMS, cross_region: POL-7.CROSS_REGION}
+  new_vendor_min_usd: 10000       # "$10,000 or more" - inclusive
+  approved_terms: [approved, standard]
+
+ai_tools:          # §8 AI tools - an approval for limited use does not cover sensitive data classes
+  rule_id: POL-8.LIMITED_USE
+  limited_use_markers: [limited use, limited-use, restricted, permitted data classes]
+
+injection:         # §9 Untrusted content
+  rule_id: POL-9.INJECTION
+  flag: prompt_injection_detected
+
+tool_failure:      # §10 Tool and evidence failures
+  rule_id: POL-10.UNAVAILABLE
+  flag: vendor_risk_unavailable
+
+blocks:            # A5: the policy defines no hard blocks; these registry states are treated as one
+  rule_id: POL-5.VENDOR_REJECTED
+  vendor_statuses: [rejected]
+
+human_authority:   # §11 - every decision ends with a human
+  rule_id: POL-11.HUMAN
+
+flags:             # severity of each flag code; high/critical forces a human handoff (escalation floor)
+  budget_insufficient: high
+  budget_unverified: high
+  existing_tool_overlap: low
+  security_review_required: medium
+  privacy_review_required: medium
+  legal_review_required: medium
+  vendor_review_expired: high
+  conflicting_vendor_evidence: high
+  vendor_risk_unavailable: high
+  vendor_not_approved: high
+  vendor_assessment_missing: high
+  vendor_rejected: critical
+  high_vendor_risk: high
+  cross_region_personal_data: high
+  limited_use_approval: high
+  prompt_injection_detected: high
+  missing_information: medium
+  senior_approval_required: medium
+  sensitive_data: medium
+  unknown_data_class: medium
+  requester_unknown: high
+  possible_duplicate_purchase: medium
+  data_anomaly: medium
