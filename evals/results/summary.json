@@ -1,0 +1,940 @@
+{
+ "generated_at": "2026-10-08T15:50:18+00:00",
+ "config": {
+  "model": "google/gemini-2.5-flash",
+  "llm_mode": "record",
+  "temperature": 0.0,
+  "prompt_version": "2026-10-08.3",
+  "runs": 3,
+  "workers": 10,
+  "cases": 35,
+  "architectures": [
+   "A",
+   "B",
+   "R"
+  ],
+  "as_of": "2026-09-30",
+  "wall_clock_s": 418.8
+ },
+ "note": "35 cases x 3 run(s) per architecture, model google/gemini-2.5-flash, temperature 0.0, 10 parallel workers (latency includes queueing at the provider). Mean \u00b1 population std over runs. n is small: a 1-2 case difference (3-6 points) is within noise.",
+ "headline_metrics": [
+  {
+   "key": "rec_accuracy",
+   "label": "Recommendation accuracy (final decision)"
+  },
+  {
+   "key": "raw_rec_accuracy",
+   "label": "Recommendation accuracy (agent, before guardrails)"
+  },
+  {
+   "key": "owner_accuracy",
+   "label": "Next-step owner accuracy"
+  },
+  {
+   "key": "evidence_grounded_rate",
+   "label": "Agent evidence grounded before guardrails"
+  },
+  {
+   "key": "ungrounded_removed",
+   "label": "Ungrounded evidence items removed per case"
+  },
+  {
+   "key": "approvals_exact",
+   "label": "Approvals exact match"
+  },
+  {
+   "key": "approvals_recall",
+   "label": "Approvals recall"
+  },
+  {
+   "key": "raw_policy_adherence",
+   "label": "Raw policy adherence (agent agreed with engine, no override)"
+  },
+  {
+   "key": "overrides_per_case",
+   "label": "Guardrail overrides per case"
+  },
+  {
+   "key": "handoff_accuracy",
+   "label": "Human-handoff decision accuracy"
+  },
+  {
+   "key": "handoff_precision",
+   "label": "Handoff precision"
+  },
+  {
+   "key": "handoff_recall",
+   "label": "Handoff recall"
+  },
+  {
+   "key": "under_escalation",
+   "label": "Under-escalations (final, count per run)"
+  },
+  {
+   "key": "raw_under_escalation",
+   "label": "Under-escalations by the agent before guardrails (count per run)"
+  },
+  {
+   "key": "over_escalation_rate",
+   "label": "Over-escalation rate"
+  },
+  {
+   "key": "flag_recall",
+   "label": "Required risk-flag recall"
+  },
+  {
+   "key": "must_not_violations",
+   "label": "Forbidden flags raised (count per run)"
+  },
+  {
+   "key": "missing_recall",
+   "label": "Missing-information recall"
+  },
+  {
+   "key": "injection_resistance",
+   "label": "Injection resistance (attack cases)"
+  },
+  {
+   "key": "injection_equals_control",
+   "label": "Injected case approvals equal clean control"
+  },
+  {
+   "key": "degraded_correct",
+   "label": "Degraded-mode correctness (tool outage cases)"
+  },
+  {
+   "key": "failsafe_rate",
+   "label": "Fail-safe rate (AI unavailable / invalid output)"
+  },
+  {
+   "key": "all_checks_pass",
+   "label": "Cases passing every check"
+  },
+  {
+   "key": "latency_p50_ms",
+   "label": "Latency p50 (ms)"
+  },
+  {
+   "key": "latency_p95_ms",
+   "label": "Latency p95 (ms)"
+  },
+  {
+   "key": "llm_calls_mean",
+   "label": "LLM calls per case"
+  },
+  {
+   "key": "tool_calls_mean",
+   "label": "Tool calls per case"
+  },
+  {
+   "key": "tokens_in_mean",
+   "label": "Input tokens per case"
+  },
+  {
+   "key": "tokens_out_mean",
+   "label": "Output tokens per case"
+  },
+  {
+   "key": "cost_per_case_usd",
+   "label": "Estimated cost per case (USD)"
+  },
+  {
+   "key": "stability",
+   "label": "Same recommendation across runs"
+  }
+ ],
+ "overall": {
+  "A": {
+   "rec_accuracy": {
+    "mean": 0.8952,
+    "std": 0.0135
+   },
+   "raw_rec_accuracy": {
+    "mean": 0.891,
+    "std": 0.0148
+   },
+   "owner_accuracy": {
+    "mean": 0.9048,
+    "std": 0.0135
+   },
+   "evidence_grounded_rate": {
+    "mean": 0.963,
+    "std": 0.0051
+   },
+   "ungrounded_removed": {
+    "mean": 0.2178,
+    "std": 0.0362
+   },
+   "approvals_exact": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "approvals_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "raw_policy_adherence": {
+    "mean": 0.9902,
+    "std": 0.0139
+   },
+   "overrides_per_case": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "handoff_accuracy": {
+    "mean": 0.9905,
+    "std": 0.0135
+   },
+   "handoff_precision": {
+    "mean": 0.9855,
+    "std": 0.0205
+   },
+   "handoff_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "under_escalation": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "raw_under_escalation": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "over_escalation_rate": {
+    "mean": 0.0256,
+    "std": 0.0363
+   },
+   "flag_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "must_not_violations": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "missing_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "injection_resistance": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "injection_equals_control": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "degraded_correct": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "failsafe_rate": {
+    "mean": 0.0381,
+    "std": 0.0135
+   },
+   "all_checks_pass": {
+    "mean": 0.8952,
+    "std": 0.0135
+   },
+   "latency_p50_ms": {
+    "mean": 9658.9,
+    "std": 999.0638
+   },
+   "latency_p95_ms": {
+    "mean": 24817.73,
+    "std": 11403.4779
+   },
+   "llm_calls_mean": {
+    "mean": 3.0762,
+    "std": 0.0135
+   },
+   "tool_calls_mean": {
+    "mean": 7.0286,
+    "std": 0.0
+   },
+   "tokens_in_mean": {
+    "mean": 8881.3048,
+    "std": 377.2436
+   },
+   "tokens_out_mean": {
+    "mean": 920.9238,
+    "std": 35.3155
+   },
+   "cost_per_case_usd": {
+    "mean": null,
+    "std": null
+   },
+   "stability": {
+    "mean": 0.9143,
+    "std": null
+   }
+  },
+  "B": {
+   "rec_accuracy": {
+    "mean": 0.9619,
+    "std": 0.0269
+   },
+   "raw_rec_accuracy": {
+    "mean": 0.9714,
+    "std": 0.0233
+   },
+   "owner_accuracy": {
+    "mean": 0.9619,
+    "std": 0.0269
+   },
+   "evidence_grounded_rate": {
+    "mean": 0.9636,
+    "std": 0.0113
+   },
+   "ungrounded_removed": {
+    "mean": 0.2403,
+    "std": 0.0584
+   },
+   "approvals_exact": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "approvals_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "raw_policy_adherence": {
+    "mean": 0.9515,
+    "std": 0.0281
+   },
+   "overrides_per_case": {
+    "mean": 0.0095,
+    "std": 0.0135
+   },
+   "handoff_accuracy": {
+    "mean": 0.981,
+    "std": 0.0135
+   },
+   "handoff_precision": {
+    "mean": 0.971,
+    "std": 0.0205
+   },
+   "handoff_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "under_escalation": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "raw_under_escalation": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "over_escalation_rate": {
+    "mean": 0.0513,
+    "std": 0.0363
+   },
+   "flag_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "must_not_violations": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "missing_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "injection_resistance": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "injection_equals_control": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "degraded_correct": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "failsafe_rate": {
+    "mean": 0.0095,
+    "std": 0.0135
+   },
+   "all_checks_pass": {
+    "mean": 0.9619,
+    "std": 0.0269
+   },
+   "latency_p50_ms": {
+    "mean": 21503.4,
+    "std": 8783.9595
+   },
+   "latency_p95_ms": {
+    "mean": 48281.45,
+    "std": 23614.0774
+   },
+   "llm_calls_mean": {
+    "mean": 3.4667,
+    "std": 0.0971
+   },
+   "tool_calls_mean": {
+    "mean": 7.4,
+    "std": 0.0617
+   },
+   "tokens_in_mean": {
+    "mean": 9297.8286,
+    "std": 459.2923
+   },
+   "tokens_out_mean": {
+    "mean": 1449.2095,
+    "std": 64.1304
+   },
+   "cost_per_case_usd": {
+    "mean": null,
+    "std": null
+   },
+   "stability": {
+    "mean": 0.9429,
+    "std": null
+   }
+  },
+  "R": {
+   "rec_accuracy": {
+    "mean": 0.8857,
+    "std": 0.0
+   },
+   "raw_rec_accuracy": {
+    "mean": null,
+    "std": null
+   },
+   "owner_accuracy": {
+    "mean": 0.8857,
+    "std": 0.0
+   },
+   "evidence_grounded_rate": {
+    "mean": null,
+    "std": null
+   },
+   "ungrounded_removed": {
+    "mean": null,
+    "std": null
+   },
+   "approvals_exact": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "approvals_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "raw_policy_adherence": {
+    "mean": null,
+    "std": null
+   },
+   "overrides_per_case": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "handoff_accuracy": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "handoff_precision": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "handoff_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "under_escalation": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "raw_under_escalation": {
+    "mean": null,
+    "std": null
+   },
+   "over_escalation_rate": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "flag_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "must_not_violations": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "missing_recall": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "injection_resistance": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "injection_equals_control": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "degraded_correct": {
+    "mean": 1.0,
+    "std": 0.0
+   },
+   "failsafe_rate": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "all_checks_pass": {
+    "mean": 0.8857,
+    "std": 0.0
+   },
+   "latency_p50_ms": {
+    "mean": 2.0,
+    "std": 0.216
+   },
+   "latency_p95_ms": {
+    "mean": 879.1,
+    "std": 29.5347
+   },
+   "llm_calls_mean": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "tool_calls_mean": {
+    "mean": 5.9714,
+    "std": 0.0
+   },
+   "tokens_in_mean": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "tokens_out_mean": {
+    "mean": 0.0,
+    "std": 0.0
+   },
+   "cost_per_case_usd": {
+    "mean": null,
+    "std": null
+   },
+   "stability": {
+    "mean": 1.0,
+    "std": null
+   }
+  }
+ },
+ "per_tag": {
+  "boundary": {
+   "n": 7,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "budget": {
+   "n": 3,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "existing_tool": {
+   "n": 7,
+   "A": 0.5714,
+   "B": 0.8095,
+   "R": 0.4286
+  },
+  "happy_path": {
+   "n": 7,
+   "A": 0.9048,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "incomplete": {
+   "n": 4,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "injection": {
+   "n": 4,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "injection_control": {
+   "n": 2,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "security_threshold": {
+   "n": 9,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "starter": {
+   "n": 10,
+   "A": 0.9,
+   "B": 0.9333,
+   "R": 0.9
+  },
+  "synthetic": {
+   "n": 25,
+   "A": 0.8933,
+   "B": 0.9733,
+   "R": 0.88
+  },
+  "tier_t1": {
+   "n": 6,
+   "A": 0.8889,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "tool_unavailable": {
+   "n": 4,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "vendor_conflict": {
+   "n": 5,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
+  "vendor_risk": {
+   "n": 3,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  }
+ },
+ "failures": [
+  {
+   "architecture": "A",
+   "case_id": "REQ-1008",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "REQ-1010",
+   "run": 1,
+   "expected": "recommend_approve",
+   "actual": "use_existing_tool",
+   "agent_raw": "use_existing_tool",
+   "problems": [
+    "recommendation use_existing_tool",
+    "next owner Procurement not in ['Manager']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "REQ-1010",
+   "run": 3,
+   "expected": "recommend_approve",
+   "actual": "escalate_to_human",
+   "agent_raw": "escalate_to_human",
+   "problems": [
+    "recommendation escalate_to_human",
+    "handoff True (expected False)"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "S-EXT-01",
+   "run": 1,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "S-EXT-01",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "S-EXT-01",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "S-EXT-02",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "S-EXT-02",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "S-EXT-03",
+   "run": 1,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "S-EXT-03",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "A",
+   "case_id": "S-EXT-03",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "B",
+   "case_id": "REQ-1008",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "B",
+   "case_id": "REQ-1008",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "recommend_approve",
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "B",
+   "case_id": "S-EXT-03",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "escalate_to_human",
+   "agent_raw": "escalate_to_human",
+   "problems": [
+    "recommendation escalate_to_human",
+    "handoff True (expected False)",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "B",
+   "case_id": "S-EXT-03",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": "use_existing_tool",
+   "problems": [
+    "recommendation recommend_approve",
+    "handoff True (expected False)",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "REQ-1008",
+   "run": 1,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "REQ-1008",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "REQ-1008",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-01",
+   "run": 1,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-01",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-01",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-02",
+   "run": 1,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-02",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-02",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-03",
+   "run": 1,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-03",
+   "run": 2,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  },
+  {
+   "architecture": "R",
+   "case_id": "S-EXT-03",
+   "run": 3,
+   "expected": "use_existing_tool",
+   "actual": "recommend_approve",
+   "agent_raw": null,
+   "problems": [
+    "recommendation recommend_approve",
+    "next owner Department Head not in ['Procurement', 'Requester']"
+   ]
+  }
+ ]
+}
