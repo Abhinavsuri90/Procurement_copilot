@@ -69,7 +69,7 @@ class VendorClient:
         for attempt in range(1, attempts + 1):
             try:
                 self._inject(fault if fault in FAULTS else None, attempt)
-                response = self._client().get(path, timeout=self.timeout_s)
+                response = self._client().get(path)  # timeout is set on the client
                 last_status = response.status_code
                 if response.status_code == 200:
                     log.append(f"attempt {attempt}: 200")
@@ -94,7 +94,7 @@ class VendorClient:
 
     def health(self) -> bool:
         try:
-            return self._client().get("/health", timeout=1.0).status_code == 200
+            return self._client().get("/health").status_code == 200
         except httpx.HTTPError:
             return False
 
