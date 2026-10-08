@@ -54,7 +54,7 @@ function renderQueue() {
 }
 
 const statusClass = (s) => ({"Approved": "ok", "Rejected": "bad", "Awaiting human": "warn", "Escalated": "warn",
-  "Info requested": "info", "Analyzed": "info"}[s] || "");
+  "Info requested": "info", "Analyzed": "info", "Partially approved": "info"}[s] || "");
 
 // ---------------------------------------------------------------- request detail
 async function selectRequest(id) {
@@ -160,6 +160,13 @@ function renderDecision() {
   // Policy blocks (critical flags / reject) make Approve an exception that needs its own reason.
   const blocked = d.recommendation === "recommend_reject" || d.risk_flags.some((f) => f.severity === "critical");
   $("#exception-wrap").hidden = !blocked;
+  const so = state.detail.signoffs;
+  const closed = ["Approved", "Rejected"].includes(state.detail.status);
+  $("#signoffs").innerHTML = so ? `Sign-offs ${so.approved.length}/${so.required.length}: ` +
+    so.required.map((r) => `${esc(r)} ${so.approved.includes(r) ? "✓" : "· pending"}`).join(", ") +
+    (closed ? ` — <b>closed (${esc(state.detail.status)})</b>` : "") : "";
+  document.querySelectorAll("#human-form [data-action]").forEach((b) => { b.disabled = closed; });
+  if (so && so.pending.length && !closed) $("#reviewer-role").value = so.pending[0];
   const copy = $("#copy-q");
   if (copy) copy.onclick = () => navigator.clipboard?.writeText(d.missing_information.map((x) => "- " + x.question_for_requester).join("\n"));
 }

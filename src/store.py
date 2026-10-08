@@ -93,14 +93,27 @@ class Store:
     def actions_for(self, request_id: str) -> list[dict[str, Any]]:
         return self._all("SELECT * FROM actions WHERE request_id = ? ORDER BY id", (request_id,))
 
+    def signoffs(self, request_id: str, run: dict[str, Any]) -> dict[str, Any]:
+        """Approval sign-offs collected for the latest analysis (a new analysis starts a fresh round)."""
+        required = [a["role"] for a in run["decision"]["approvals_required"]]
+        actions = [a for a in self.actions_for(request_id) if a["run_id"] == run["run_id"]]
+        approved = [a["reviewer_role"] for a in actions if a["action"] == "approve"]
+        return {"required": required, "approved": [r for r in required if r in approved],
+                "pending": [r for r in required if r not in approved], "actions": actions}
+
     def status(self, request_id: str) -> str:
-        actions = self.actions_for(request_id)
-        if actions:
-            return ACTION_STATUS[actions[-1]["action"]]
         run = self.latest_run(request_id)
         if run is None:
             return "New"
-        return "Awaiting human" if run["decision"]["human_handoff"]["required"] else "Analyzed"
+        s = self.signoffs(request_id, run)
+        if not s["actions"]:
+            return "Awaiting human" if run["decision"]["human_handoff"]["required"] else "Analyzed"
+        if any(a["action"] == "reject" for a in s["actions"]):
+            return "Rejected"
+        if s["required"] and not s["pending"]:
+            return "Approved"
+        last = s["actions"][-1]["action"]
+        return "Partially approved" if last == "approve" else ACTION_STATUS[last]
 
 
 def _decode_run(row: dict[str, Any]) -> dict[str, Any]:

@@ -16,8 +16,8 @@
   <div class="controls">
     <label class="ctl">Architecture
       <select id="arch">
+        <option value="B" selected>B · staged (2 agents, shipped)</option>
         <option value="A">A · single agent</option>
-        <option value="B">B · staged (2 agents)</option>
         <option value="R">R · rules only</option>
       </select>
     </label>
@@ -34,7 +34,7 @@
       <input id="search" type="search" placeholder="Search requests" aria-label="Search requests">
       <select id="status-filter" aria-label="Filter by status">
         <option value="">All statuses</option>
-        <option>New</option><option>Analyzed</option><option>Awaiting human</option><option>Approved</option>
+        <option>New</option><option>Analyzed</option><option>Awaiting human</option><option>Partially approved</option><option>Approved</option>
         <option>Rejected</option><option>Info requested</option><option>Escalated</option>
       </select>
       <button id="new-btn" class="btn secondary">+ New request</button>
@@ -75,6 +75,7 @@
     <div id="decision-body" hidden></div>
     <form id="human-form" class="human" hidden>
       <h3>Human decision</h3>
+      <p class="small" id="signoffs"></p>
       <label>Reviewer role <select id="reviewer-role"></select></label>
       <label>Reason <textarea id="reason" rows="2" placeholder="Required when you override the recommendation"></textarea></label>
       <label id="exception-wrap" hidden>Exception reason (policy block)<textarea id="exception" rows="2"></textarea></label>

@@ -45,32 +45,57 @@ def test_analyze_then_human_actions_are_audited(client):
     assert client.get(f"/api/runs/{res['run_id']}").json()["trace"]
     assert client.post("/api/requests/REQ-1001/analyze?arch=Z").status_code == 400
 
-    # approving an escalation is a legitimate human decision; rejecting needs no reason either
+    # approving an escalation needs a reason, and only the required approvers can sign off
+    assert client.post("/api/requests/REQ-1001/actions",
+                       json={"action": "approve", "reviewer_role": "Manager"}).status_code == 422
+    assert client.post("/api/requests/REQ-1001/actions",
+                       json={"action": "approve", "reviewer_role": "CFO", "reason": "x"}).status_code == 422
     ok = client.post("/api/requests/REQ-1001/actions", json={"action": "approve", "reviewer_role": "Manager",
                                                              "reason": "Vendor confirmed by phone"})
-    assert ok.status_code == 201 and ok.json()["status"] == "Approved"
+    assert ok.status_code == 201 and ok.json()["status"] == "Partially approved"
+    assert ok.json()["signoffs"]["pending"] == ["Security"]
     entry = ok.json()["action"]
     assert entry["ai_recommendation"] == "escalate_to_human" and entry["architecture"] and entry["model"]
+    assert entry["is_override"] == 1
+    again = client.post("/api/requests/REQ-1001/actions", json={"action": "approve", "reviewer_role": "Manager",
+                                                                "reason": "again"})
+    assert again.status_code == 409
+    done = client.post("/api/requests/REQ-1001/actions", json={"action": "approve", "reviewer_role": "Security",
+                                                               "reason": "Manual assessment completed"})
+    assert done.json()["status"] == "Approved"
+    closed = client.post("/api/requests/REQ-1001/actions", json={"action": "reject", "reviewer_role": "Security",
+                                                                 "reason": "changed my mind"})
+    assert closed.status_code == 409
     assert client.post("/api/requests/REQ-1001/actions",
                        json={"action": "approve", "reviewer_role": "Wizard"}).status_code == 400
     audit = client.get("/api/requests/REQ-1001").json()["audit"]
-    assert [a["action"] for a in audit] == ["approve"]
+    assert [a["action"] for a in audit] == ["approve", "approve"]
+
+
+def test_single_manager_cannot_approve_a_multi_approver_request(client):
+    client.post("/api/requests/REQ-1005/analyze?arch=R")
+    r = client.post("/api/requests/REQ-1005/actions", json={"action": "approve", "reviewer_role": "Manager",
+                                                            "reason": "looks fine"})
+    assert r.status_code == 422 and "not a required approver" in r.json()["detail"]
+    r = client.post("/api/requests/REQ-1005/actions", json={"action": "approve", "reviewer_role": "Finance",
+                                                            "reason": "budget exception granted"})
+    assert r.json()["status"] == "Partially approved"
 
 
 def test_override_requires_reason_and_blocks_require_exception(client):
     client.post("/api/requests/REQ-1006/analyze?arch=R")  # request_more_info
-    no_reason = client.post("/api/requests/REQ-1006/actions", json={"action": "approve", "reviewer_role": "CFO"})
+    no_reason = client.post("/api/requests/REQ-1006/actions", json={"action": "approve", "reviewer_role": "Security"})
     assert no_reason.status_code == 422 and "reason" in no_reason.json()["detail"]
     with_reason = client.post("/api/requests/REQ-1006/actions",
-                              json={"action": "approve", "reviewer_role": "CFO", "reason": "Exec sponsor"})
+                              json={"action": "approve", "reviewer_role": "Security", "reason": "Exec sponsor"})
     assert with_reason.status_code == 201 and with_reason.json()["action"]["is_override"] == 1
 
     run = main.store().latest_run("REQ-1006")
     main.store().add_run("blocked", "REQ-1006", "R", run["decision"], [], None, {"blocks": [{"rule_id": "X"}]})
     blocked = client.post("/api/requests/REQ-1006/actions",
-                          json={"action": "approve", "reviewer_role": "CFO", "reason": "r"})
+                          json={"action": "approve", "reviewer_role": "Privacy", "reason": "r"})
     assert blocked.status_code == 422 and "exception" in blocked.json()["detail"]
-    exc = client.post("/api/requests/REQ-1006/actions", json={"action": "approve", "reviewer_role": "CFO",
+    exc = client.post("/api/requests/REQ-1006/actions", json={"action": "approve", "reviewer_role": "Privacy",
                                                               "reason": "r", "exception_reason": "Board waiver"})
     assert exc.json()["action"]["is_exception"] == 1
 

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from src.config import ROOT, get_settings
 from src.data_access import default_repository
-from src.orchestrator import analyze, normalize_arch
+from src.orchestrator import analyze, normalize_arch, representative_run
 from src.schemas import APPROVER_ROLES, PurchaseRequest, Recommendation
 from src.store import Store
 from src.vendor_client import VendorClient
@@ -28,7 +28,7 @@ CONSISTENT = {
     Recommendation.RECOMMEND_APPROVE.value: {"approve"},
     Recommendation.USE_EXISTING_TOOL.value: {"reject", "request_info"},
     Recommendation.REQUEST_MORE_INFO.value: {"request_info"},
-    Recommendation.ESCALATE_TO_HUMAN.value: {"escalate", "approve", "reject", "request_info"},
+    Recommendation.ESCALATE_TO_HUMAN.value: {"escalate", "request_info"},
     Recommendation.RECOMMEND_REJECT.value: {"reject"},
 }
 
@@ -105,11 +105,12 @@ def request_detail(request_id: str) -> dict[str, Any]:
     run = store().latest_run(request_id)
     return {"request": raw, "status": store().status(request_id),
             "latest_run": {k: run[k] for k in ("run_id", "architecture", "created_at", "decision")} if run else None,
-            "runs": store().runs_for(request_id), "audit": store().actions_for(request_id)}
+            "runs": store().runs_for(request_id), "audit": store().actions_for(request_id),
+            "signoffs": {k: v for k, v in store().signoffs(request_id, run).items() if k != "actions"} if run else None}
 
 
 @app.post("/api/requests/{request_id}/analyze")
-def run_analysis(request_id: str, arch: str = Query("A"), fault: str | None = Query(None)) -> dict[str, Any]:
+def run_analysis(request_id: str, arch: str = Query("B"), fault: str | None = Query(None)) -> dict[str, Any]:
     raw = get_request_or_404(request_id)
     try:
         arch = normalize_arch(arch)
@@ -117,7 +118,8 @@ def run_analysis(request_id: str, arch: str = Query("A"), fault: str | None = Qu
         raise HTTPException(400, str(exc)) from exc
     if fault not in (None, "", "down", "slow", "flaky"):
         raise HTTPException(400, "fault must be down, slow or flaky")
-    result = analyze(PurchaseRequest.from_raw(raw), arch, case_key=(request_id, 1), fault=fault or None)
+    result = analyze(PurchaseRequest.from_raw(raw), arch, case_key=(request_id, representative_run(arch, request_id)),
+                     fault=fault or None)
     decision = result.decision.model_dump(mode="json")
     store().add_run(result.run_id, request_id, arch, decision, result.trace, result.raw_output, result.policy)
     return {"run_id": result.run_id, "decision": decision, "trace": result.trace, "status": store().status(request_id)}
@@ -143,6 +145,16 @@ def human_action(request_id: str, body: HumanAction) -> dict[str, Any]:
     decision = run["decision"]
     rec = decision["recommendation"]
     reason = (body.reason or "").strip()
+    status = store().status(request_id)
+    if status in ("Approved", "Rejected"):
+        raise HTTPException(409, f"Request is closed ({status}); run the copilot again to reopen it")
+    signoffs = store().signoffs(request_id, run)
+    if body.action == "approve":
+        if body.reviewer_role not in signoffs["required"]:
+            raise HTTPException(422, f"{body.reviewer_role} is not a required approver for this request "
+                                     f"(required: {', '.join(signoffs['required']) or 'none'})")
+        if body.reviewer_role in signoffs["approved"]:
+            raise HTTPException(409, f"{body.reviewer_role} has already approved this analysis")
     is_override = body.action not in CONSISTENT[rec]
     if is_override and not reason:
         raise HTTPException(422, f"'{body.action}' overrides the AI recommendation '{rec}': a written reason is required")
@@ -157,7 +169,8 @@ def human_action(request_id: str, body: HumanAction) -> dict[str, Any]:
                                reviewer_role=body.reviewer_role, reason=reason or None, ai_recommendation=rec,
                                architecture=decision["meta"]["architecture"], model=decision["meta"]["model"],
                                is_override=int(is_override), is_exception=int(is_exception))
-    return {"action": entry, "status": store().status(request_id)}
+    return {"action": entry, "status": store().status(request_id),
+            "signoffs": {k: v for k, v in store().signoffs(request_id, run).items() if k != "actions"}}
 
 
 @app.get("/api/eval/summary")
