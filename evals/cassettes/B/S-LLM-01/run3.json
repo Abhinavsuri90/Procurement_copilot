@@ -1,0 +1,13 @@
+{
+ "model": null,
+ "run_latency_ms": 8.8,
+ "calls": [
+  {
+   "hash": "d5288cde1605167da2bb0511e4410425c2ab35504cca91214320147b5d6491ce",
+   "agent": "analyst",
+   "turn": 1,
+   "error": "simulated outage: HTTP 503 from the model provider"
+  }
+ ],
+ "final_request": null
+}

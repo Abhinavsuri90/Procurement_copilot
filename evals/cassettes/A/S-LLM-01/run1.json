@@ -1,0 +1,13 @@
+{
+ "model": null,
+ "run_latency_ms": 62.7,
+ "calls": [
+  {
+   "hash": "fe804a04f99dcf2e9629b1c8e5ea7af576fbbda73b005ae697d2e57dafb28c35",
+   "agent": "procurement_agent",
+   "turn": 1,
+   "error": "simulated outage: HTTP 503 from the model provider"
+  }
+ ],
+ "final_request": null
+}

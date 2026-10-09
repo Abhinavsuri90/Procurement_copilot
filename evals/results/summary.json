@@ -1,22 +1,22 @@
 {
- "generated_at": "2026-10-08T15:50:18+00:00",
+ "generated_at": "2026-10-09T18:17:26+00:00",
  "config": {
   "model": "google/gemini-2.5-flash",
-  "llm_mode": "record",
+  "llm_mode": "replay",
   "temperature": 0.0,
   "prompt_version": "2026-10-08.3",
   "runs": 3,
-  "workers": 10,
-  "cases": 35,
+  "workers": 12,
+  "cases": 37,
   "architectures": [
    "A",
    "B",
    "R"
   ],
   "as_of": "2026-09-30",
-  "wall_clock_s": 418.8
+  "wall_clock_s": 13.7
  },
- "note": "35 cases x 3 run(s) per architecture, model google/gemini-2.5-flash, temperature 0.0, 10 parallel workers (latency includes queueing at the provider). Mean \u00b1 population std over runs. n is small: a 1-2 case difference (3-6 points) is within noise.",
+ "note": "37 cases x 3 run(s) per architecture, model google/gemini-2.5-flash, temperature 0.0, 12 parallel workers (latency includes queueing at the provider). Mean \u00b1 population std over runs. R (no model) skips the model-outage case. n is small: a 1-2 case difference (3-6 points) is within noise.",
  "headline_metrics": [
   {
    "key": "rec_accuracy",
@@ -104,7 +104,7 @@
   },
   {
    "key": "failsafe_rate",
-   "label": "Fail-safe rate (AI unavailable / invalid output)"
+   "label": "Unplanned fail-safe rate (invalid output / no decision)"
   },
   {
    "key": "all_checks_pass",
@@ -146,24 +146,24 @@
  "overall": {
   "A": {
    "rec_accuracy": {
-    "mean": 0.8952,
-    "std": 0.0135
+    "mean": 0.9009,
+    "std": 0.0127
    },
    "raw_rec_accuracy": {
-    "mean": 0.891,
-    "std": 0.0148
+    "mean": 0.8941,
+    "std": 0.0143
    },
    "owner_accuracy": {
-    "mean": 0.9048,
-    "std": 0.0135
+    "mean": 0.9099,
+    "std": 0.0127
    },
    "evidence_grounded_rate": {
-    "mean": 0.963,
-    "std": 0.0051
+    "mean": 0.9636,
+    "std": 0.005
    },
    "ungrounded_removed": {
-    "mean": 0.2178,
-    "std": 0.0362
+    "mean": 0.2115,
+    "std": 0.0352
    },
    "approvals_exact": {
     "mean": 1.0,
@@ -174,20 +174,20 @@
     "std": 0.0
    },
    "raw_policy_adherence": {
-    "mean": 0.9902,
-    "std": 0.0139
+    "mean": 0.9905,
+    "std": 0.0135
    },
    "overrides_per_case": {
     "mean": 0.0,
     "std": 0.0
    },
    "handoff_accuracy": {
-    "mean": 0.9905,
-    "std": 0.0135
+    "mean": 0.991,
+    "std": 0.0127
    },
    "handoff_precision": {
-    "mean": 0.9855,
-    "std": 0.0205
+    "mean": 0.9867,
+    "std": 0.0189
    },
    "handoff_recall": {
     "mean": 1.0,
@@ -230,66 +230,66 @@
     "std": 0.0
    },
    "failsafe_rate": {
-    "mean": 0.0381,
-    "std": 0.0135
+    "mean": 0.037,
+    "std": 0.0131
    },
    "all_checks_pass": {
-    "mean": 0.8952,
-    "std": 0.0135
+    "mean": 0.9009,
+    "std": 0.0127
    },
    "latency_p50_ms": {
     "mean": 9658.9,
     "std": 999.0638
    },
    "latency_p95_ms": {
-    "mean": 24817.73,
-    "std": 11403.4779
+    "mean": 25702.7533,
+    "std": 10701.6911
    },
    "llm_calls_mean": {
-    "mean": 3.0762,
-    "std": 0.0135
+    "mean": 3.0,
+    "std": 0.0
    },
    "tool_calls_mean": {
-    "mean": 7.0286,
+    "mean": 7.0,
     "std": 0.0
    },
    "tokens_in_mean": {
-    "mean": 8881.3048,
-    "std": 377.2436
+    "mean": 8639.1982,
+    "std": 352.1656
    },
    "tokens_out_mean": {
-    "mean": 920.9238,
-    "std": 35.3155
+    "mean": 893.3243,
+    "std": 29.2749
    },
    "cost_per_case_usd": {
     "mean": null,
     "std": null
    },
    "stability": {
-    "mean": 0.9143,
+    "mean": 0.9189,
     "std": null
    }
   },
   "B": {
    "rec_accuracy": {
-    "mean": 0.9619,
-    "std": 0.0269
+    "mean": 0.964,
+    "std": 0.0255
    },
    "raw_rec_accuracy": {
-    "mean": 0.9714,
+    "mean": 0.9717,
     "std": 0.0233
    },
    "owner_accuracy": {
-    "mean": 0.9619,
-    "std": 0.0269
+    "mean": 0.973,
+    "std": 0.0221
    },
    "evidence_grounded_rate": {
-    "mean": 0.9636,
-    "std": 0.0113
+    "mean": 0.9639,
+    "std": 0.011
    },
    "ungrounded_removed": {
-    "mean": 0.2403,
-    "std": 0.0584
+    "mean": 0.2374,
+    "std": 0.0548
    },
    "approvals_exact": {
     "mean": 1.0,
@@ -300,20 +300,20 @@
     "std": 0.0
    },
    "raw_policy_adherence": {
-    "mean": 0.9515,
-    "std": 0.0281
+    "mean": 0.9518,
+    "std": 0.0283
    },
    "overrides_per_case": {
-    "mean": 0.0095,
-    "std": 0.0135
+    "mean": 0.009,
+    "std": 0.0127
    },
    "handoff_accuracy": {
-    "mean": 0.981,
-    "std": 0.0135
+    "mean": 0.982,
+    "std": 0.0127
    },
    "handoff_precision": {
-    "mean": 0.971,
-    "std": 0.0205
+    "mean": 0.9733,
+    "std": 0.0189
    },
    "handoff_recall": {
     "mean": 1.0,
@@ -356,49 +356,49 @@
     "std": 0.0
    },
    "failsafe_rate": {
-    "mean": 0.0095,
-    "std": 0.0135
+    "mean": 0.0278,
+    "std": 0.0227
    },
    "all_checks_pass": {
-    "mean": 0.9619,
-    "std": 0.0269
+    "mean": 0.964,
+    "std": 0.0255
    },
    "latency_p50_ms": {
-    "mean": 21503.4,
-    "std": 8783.9595
+    "mean": 20572.2333,
+    "std": 8748.1858
    },
    "latency_p95_ms": {
-    "mean": 48281.45,
-    "std": 23614.0774
+    "mean": 47928.2333,
+    "std": 23376.3396
    },
    "llm_calls_mean": {
-    "mean": 3.4667,
-    "std": 0.0971
+    "mean": 3.3694,
+    "std": 0.1043
    },
    "tool_calls_mean": {
-    "mean": 7.4,
-    "std": 0.0617
+    "mean": 7.3514,
+    "std": 0.0584
    },
    "tokens_in_mean": {
-    "mean": 9297.8286,
-    "std": 459.2923
+    "mean": 8986.1081,
+    "std": 477.603
    },
    "tokens_out_mean": {
-    "mean": 1449.2095,
-    "std": 64.1304
+    "mean": 1397.4414,
+    "std": 60.9991
    },
    "cost_per_case_usd": {
     "mean": null,
     "std": null
    },
    "stability": {
-    "mean": 0.9429,
+    "mean": 0.9459,
     "std": null
    }
   },
   "R": {
    "rec_accuracy": {
-    "mean": 0.8857,
+    "mean": 0.8889,
     "std": 0.0
    },
    "raw_rec_accuracy": {
@@ -406,7 +406,7 @@
     "std": null
    },
    "owner_accuracy": {
-    "mean": 0.8857,
+    "mean": 0.8889,
     "std": 0.0
    },
    "evidence_grounded_rate": {
@@ -486,23 +486,23 @@
     "std": 0.0
    },
    "all_checks_pass": {
-    "mean": 0.8857,
+    "mean": 0.8889,
     "std": 0.0
    },
    "latency_p50_ms": {
-    "mean": 2.0,
-    "std": 0.216
+    "mean": 2.05,
+    "std": 0.2273
    },
    "latency_p95_ms": {
-    "mean": 879.1,
-    "std": 29.5347
+    "mean": 877.2833,
+    "std": 29.554
    },
    "llm_calls_mean": {
     "mean": 0.0,
     "std": 0.0
    },
    "tool_calls_mean": {
-    "mean": 5.9714,
+    "mean": 5.9722,
     "std": 0.0
    },
    "tokens_in_mean": {
@@ -566,6 +566,24 @@
    "B": 1.0,
    "R": 1.0
   },
+  "llm_only": {
+   "n": 1,
+   "A": 1.0,
+   "B": 1.0,
+   "R": null
+  },
+  "llm_unavailable": {
+   "n": 1,
+   "A": 1.0,
+   "B": 1.0,
+   "R": null
+  },
+  "policy_block": {
+   "n": 1,
+   "A": 1.0,
+   "B": 1.0,
+   "R": 1.0
+  },
   "security_threshold": {
    "n": 9,
    "A": 1.0,
@@ -579,10 +597,10 @@
    "R": 0.9
   },
   "synthetic": {
-   "n": 25,
-   "A": 0.8933,
-   "B": 0.9733,
-   "R": 0.88
+   "n": 27,
+   "A": 0.9012,
+   "B": 0.9753,
+   "R": 0.8846
   },
   "tier_t1": {
    "n": 6,
@@ -603,7 +621,7 @@
    "R": 1.0
   },
   "vendor_risk": {
-   "n": 3,
+   "n": 4,
    "A": 1.0,
    "B": 1.0,
    "R": 1.0
@@ -784,12 +802,11 @@
    "case_id": "S-EXT-03",
    "run": 3,
    "expected": "use_existing_tool",
-   "actual": "recommend_approve",
+   "actual": "escalate_to_human",
    "agent_raw": "use_existing_tool",
    "problems": [
-    "recommendation recommend_approve",
-    "handoff True (expected False)",
-    "next owner Department Head not in ['Procurement', 'Requester']"
+    "recommendation escalate_to_human",
+    "handoff True (expected False)"
    ]
   },
   {
