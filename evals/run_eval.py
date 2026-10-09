@@ -111,8 +111,12 @@ def summarise(rows: list[dict], cases: list[dict], archs: list[str], runs: int, 
                    "prompt_version": PROMPT_VERSION, "runs": runs, "workers": workers, "cases": len(cases),
                    "architectures": archs, "as_of": settings.as_of.isoformat(), "wall_clock_s": round(wall_s, 1)},
         "note": (f"{len(cases)} cases x {runs} run(s) per architecture, model {settings.llm_model}, temperature "
-                 f"{settings.llm_temperature}, {workers} parallel workers (latency includes queueing at the provider). "
-                 "Mean ± population std over runs. R (no model) skips the model-outage case. "
+                 f"{settings.llm_temperature}. "
+                 + ("Regenerated offline from the recorded model exchanges: latency, tokens and call counts are the "
+                    "values recorded during the live run (latency includes queueing at the provider). "
+                    if settings.llm_mode == "replay" else
+                    f"{workers} parallel workers (latency includes queueing at the provider). ")
+                 + "Mean ± population std over runs. R (no model) skips the model-outage case. "
                  "n is small: a 1-2 case difference (3-6 points) is within noise."),
         "headline_metrics": [{"key": k, "label": label} for k, label in HEADLINE],
         "overall": overall,
@@ -189,6 +193,25 @@ def write_markdown(summary: dict, path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_template_csv(rows: list[dict], cases: dict[str, dict], path: Path) -> None:
+    """The starter pack's templates/evaluation_results_template.csv columns, one row per case-run."""
+    names = {"A": "single", "B": "staged", "R": "rules"}
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow(["case_id", "architecture", "correct_next_action", "grounded_evidence", "policy_followed",
+                         "human_escalation_correct", "latency_ms", "llm_calls", "tool_calls", "notes"])
+        for r in rows:
+            s = r["score"]
+            grounded = (f"{s['evidence_grounded']}/{s['evidence_total']}" if s["evidence_total"]
+                        else "n/a (rules only)" if r["architecture"] == "R" else "n/a")
+            policy_ok = (s["approvals_exact"] and not s["must_not_violations"] and s["flag_recall"] in (None, 1.0)
+                         and s["missing_recall"] in (None, 1.0))
+            notes = "" if s["all_checks_pass"] else "; ".join(_problems(s, cases[r["case_id"]]["expected"], r))
+            writer.writerow([r["case_id"], f"{names[r['architecture']]} (run {r['run']})",
+                             s["rec_correct"] and s["owner_correct"], grounded, policy_ok, s["handoff_correct"],
+                             s["latency_ms"], s["llm_calls"], s["tool_calls"], notes])
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--arch", nargs="+", default=["A", "B", "R"], choices=["A", "B", "R"])
@@ -259,6 +282,7 @@ def main(argv: list[str] | None = None) -> int:
             for r in rows:
                 writer.writerow({"architecture": r["architecture"], "case_id": r["case_id"], "run": r["run"],
                                  **{c: r["score"].get(c) for c in cols[3:]}})
+        write_template_csv(rows, by_id, RESULTS / "evaluation_results.csv")
     print(f"\nDone in {wall:.0f}s. Full traces: {run_dir.relative_to(ROOT)}")
     for arch in args.arch:
         o = summary["overall"][arch]
