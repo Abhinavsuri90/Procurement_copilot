@@ -102,3 +102,10 @@ def test_override_requires_reason_and_blocks_require_exception(client):
 
 def test_eval_summary_endpoint(client):
     assert client.get("/api/eval/summary").status_code in (200, 404)
+
+
+def test_ui_assets_keep_hidden_authoritative_and_default_to_shipped_architecture(client):
+    css = client.get("/static/styles.css").text
+    assert "[hidden] { display: none !important; }" in css  # grid/flex rules must not un-hide views or forms
+    html = client.get("/").text
+    assert '<option value="B" selected>' in html
