@@ -1,5 +1,9 @@
 # Public evaluation harness
 
+> **Full A/B evaluation:** the project's own harness (`python -m evals.run_eval`) runs 37 labelled cases
+> (`cases.yaml`) on A, B and a rules-only baseline with record/replay — results in `results/summary.md`.
+> The six public cases below run through the starter adapter and pass 6/6 for both architectures (checked in CI).
+
 The six public cases are intentionally visible. Use them to test both architectures while you develop.
 
 Run:

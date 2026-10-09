@@ -3,8 +3,8 @@
 > **What:** an internal AI copilot that reviews employee software/service purchase requests — it gathers evidence with
 > six typed tools, applies a deterministic policy engine, recommends the next action and hands every decision to a human.
 > **Run:** `python start.py` → http://localhost:8000 (no API key needed to explore it).
-> **Ship decision:** ship **B, the staged analyst → reviewer pipeline** — it beat A on recommendation accuracy in every run with identical safety results, at about twice the latency ([memo](docs/DECISION_MEMO.md)).
-> **Headline:** 35 labelled cases × 3 runs: final accuracy **B 96.2%** · A 89.5% · rules-only 88.6%; **0 under-escalations and 100% injection resistance** for every architecture.
+> **Ship decision:** ship **B, the staged analyst → reviewer pipeline** — it beat A on recommendation accuracy in every run with no loss on final-decision safety, at about twice the latency ([memo](docs/DECISION_MEMO.md)).
+> **Headline:** 37 labelled cases × 3 runs: final accuracy **B 96.4%** · A 90.1% · rules-only 88.9%; **0 under-escalations and 100% injection resistance** for every architecture.
 
 ---
 
@@ -24,7 +24,7 @@ staged analyst → reviewer pipeline. A rules-only row **R** shows what the LLM 
 
 ## 2. Setup & run
 
-**Prerequisites:** Python 3.11+ (tested on 3.11 in CI and 3.13 locally). Nothing else.
+**Prerequisites:** Python 3.11+ (tested on 3.11 and 3.13 in CI). Nothing else.
 
 ```bash
 python start.py          # creates .venv, installs requirements, starts both services, prints the URL
@@ -34,11 +34,13 @@ python start.py          # creates .venv, installs requirements, starts both ser
 - **With an LLM:** `cp .env.example .env`, set `LLM_API_KEY` and `LLM_MODEL` (any OpenAI-compatible endpoint with
   function calling via `LLM_BASE_URL`: OpenAI, OpenRouter, Gemini, Groq, local Ollama). The evaluation used
   OpenRouter with `google/gemini-2.5-flash`.
-- **Without a key:** the app still starts. The ten starter requests replay their recorded evaluation run (a
-  "replayed" banner); new requests get a deterministic-only decision handed to a human ("AI unavailable").
-- **CLI:** `python -m src.cli analyze REQ-1007 --arch A` (`--arch B`, `--arch R`, `--fault down`, `--json`).
+- **Without a key:** the app still starts. The ten starter requests replay a recorded evaluation run — the run with
+  the most common recommendation across the three, not the best one — with a "replayed" banner; new requests, and any
+  run with the outage switch on, get a deterministic-only decision handed to a human ("AI unavailable").
+- **CLI:** `python -m src.cli analyze REQ-1007` (B by default; `--arch A`, `--arch R`, `--fault down`, `--json`).
 - **Starter harness:** `python evals/run_public_evals.py --architecture single|staged` (calls `src.solution.handle_request`).
-- **Tests:** `pip install -r requirements-dev.txt && pytest && ruff check .` (offline, no key; also run in CI).
+- **Tests:** `pip install -r requirements-dev.txt && pytest && ruff check .` (offline, no key). CI runs lint, tests,
+  the offline replay check and the starter's preflight + public harness on Python 3.11 and 3.13 for every push.
 - **Offline eval replay (no key):** `make eval-replay` or
   `LLM_MODE=replay python -m evals.run_eval --arch A B R --runs 3 --check` — reproduces the committed results exactly.
 
@@ -52,7 +54,7 @@ The brief's five steps are the workflow strip at the top of the UI and light up 
 | 2 Understand need | Agent reads the request (tool result `c0`) and searches for the capability, not just the product name |
 | 3 Gather evidence | Budget · existing tools · vendor risk · purchase history · policy — every call in the **Trace** tab; evidence chips open the raw tool output |
 | 4 Recommend next action | Decision panel: recommendation badge, summary, next step + owner, approvals with rule IDs, risk flags by severity, requester questions (copy button), evidence, guardrail-override note |
-| 5 Human review | Reviewer role + Approve / Reject / Request info / Escalate. Overriding the AI needs a written reason; approving despite a policy block needs an exception reason; every action is in the audit timeline |
+| 5 Human review | Reviewer role + Approve / Reject / Request info / Escalate. Only the roles in *approvals required* can approve, each signs off separately (sign-off progress shown) and the request is **Approved** only when all have; any rejection closes it. Acting against the AI's recommendation (including approving or rejecting an escalation) needs a written reason; approving despite a policy block needs an exception reason; every action is in the audit timeline |
 
 Degraded states are explicit: "Vendor service unavailable — recommendation limited to escalation", "AI unavailable —
 deterministic checks only", "Replayed from the recorded evaluation run". The header has the architecture toggle,
@@ -78,9 +80,9 @@ only the orchestration differs. More diagrams (A vs B, request sequence), trust 
 
 | AI | CODE | HUMAN |
 |---|---|---|
-| Interprets the request, chooses which evidence to gather, judges whether an existing tool fits, synthesises evidence, drafts the recommendation, summary and requester questions | Thresholds, budget math, vendor status/expiry/conflict, required approvals and reviews, escalation floor, groundedness, injection scan — **authoritative; the LLM cannot override them** | Approves, rejects, requests info or escalates; overrides need a written reason; exceptions to a policy block need an exception reason; all audited |
+| Interprets the request, chooses which evidence to gather, judges whether an existing tool fits, synthesises evidence, drafts the recommendation, summary and requester questions | Thresholds, budget math, vendor status/expiry/conflict, required approvals and reviews, escalation floor, groundedness, injection scan — **authoritative; the LLM cannot override them** | Each required approver signs off (or rejects); requests info or escalates; decisions against the AI need a written reason; exceptions to a policy block need an exception reason; all audited |
 
-No agent framework: the tool-calling loop is ~100 lines in [src/agents/loop.py](src/agents/loop.py).
+No agent framework: the tool-calling loop is ~120 lines in [src/agents/loop.py](src/agents/loop.py).
 
 ## 5. Tools & agents
 
@@ -114,17 +116,21 @@ and the recorded tool outputs — never from the agent's restatement:
 1. **Schema** — Pydantic validation, one repair round-trip, then a fail-safe decision (`agent_output_invalid`).
 2. **Approvals** — policy approvals can never be removed; agent additions are kept only if they cite a real rule ID.
 3. **Consistency** — `recommend_approve` when the policy says escalate / request info / reject is overridden;
-   `recommend_reject` without a policy block becomes an escalation; `use_existing_tool` needs grounded catalog
-   evidence; the next-step owner must fit the recommendation. Every override is recorded and shown.
+   `recommend_reject` without a policy block becomes an escalation; `use_existing_tool` without grounded catalog
+   evidence becomes an escalation (never an approval); the next-step owner must fit the recommendation. Every
+   override is recorded and shown.
 4. **Escalation floor** — handoff is required on a block, any high/critical flag, the CFO tier, sensitive or unknown
-   data, an uncleared/unverified/conflicting vendor, suspected injection, blocking missing info, an override or a
-   fail-safe.
-5. **Groundedness** — every evidence item must cite a `call_id` from this run, record IDs present in that output, and
-   numbers that appear in it; anything else is removed and counted.
+   data, an uncleared/unverified/conflicting vendor, suspected injection, blocking missing info, an override, a
+   fail-safe, or any final recommendation other than approve / use existing tool.
+5. **Groundedness** — every evidence item must cite a `call_id` from this run, record IDs that appear as real ID
+   values in that output (exact or whole-token match, not substrings of JSON keys), and only numbers that appear in
+   it; anything else is removed and counted. This checks citations and numbers, not whether the sentence's meaning
+   follows from them.
 6. **Missing information** — policy fields ∪ agent gaps, each with a ready-to-send question.
 7. **Injection** — deterministic scanner over request text and all tool outputs; a hit adds
    `prompt_injection_detected` and forces handoff.
-8. **No autonomy** — nothing is approved or purchased; only the human-action endpoint changes a request's status.
+8. **No autonomy** — nothing is approved or purchased; only the human-action endpoint changes a request's status,
+   and only after every required approver has signed off.
 
 | Edge case | Behaviour | Covered by |
 |---|---|---|
@@ -134,20 +140,26 @@ and the recorded tool outputs — never from the agent's restatement:
 | Security-sensitive request or threshold | engine adds Security/Privacy/Legal and tier approvers at exact boundaries | REQ-1003..1005, S-THR-01..04, S-BUD-01..02 + boundary tests |
 | Prompt injection in business data | flagged, ignored, approvals identical to the clean control, human handoff | REQ-1006, S-INJ pairs (request text, vendor notes, hidden markup) |
 | Tool / API unavailable | retries, `unavailable` envelope, `vendor_risk_unavailable`, escalation | REQ-1009 (503), S-OUT-01..03 (down/slow) + unit |
-| LLM unavailable / invalid output | deterministic-only decision handed to a human | scripted-fake-LLM tests |
+| Policy block (rejected vendor) | `recommend_reject` (or escalation), never approval; approving needs an exception reason | S-BLK-01 + unit |
+| LLM unavailable / invalid output | deterministic-only decision handed to a human (`ai_unavailable` / `agent_output_invalid`) | S-LLM-01 (simulated provider outage) + scripted-fake-LLM tests |
 
 ## 7. Evaluation results
 
-**Dataset** — [evals/cases.yaml](evals/cases.yaml): 35 labelled cases = all 10 starter requests + 25 synthetic cases
+**Dataset** — [evals/cases.yaml](evals/cases.yaml): 37 labelled cases = all 10 starter requests + 27 synthetic cases
 (every edge category ≥ 4 cases, injection attacks paired with clean controls, vendor-outage faults, exact threshold,
-budget and expiry boundaries). Labels were written from the policy and **committed before any run**
-(`test(eval): add labelled evaluation set…`); no label has changed since ([LABEL_CHANGES](evals/LABEL_CHANGES.md)).
+budget and expiry boundaries, a policy block and a model outage). The first 35 labels were written from the policy and
+**committed and pushed before any run** (`3b85f93`); none has changed. Two cases (S-BLK-01 policy block, S-LLM-01
+model outage) were added after a review found those gaps, and were labelled and committed before they ran
+([LABEL_CHANGES](evals/LABEL_CHANGES.md)).
 
 **Method** — one script runs A, B and R on identical cases, data fixtures and fault injection with fresh state per
-case-run, 3 runs each, temperature 0, 10 parallel workers. Metrics map to the brief's criteria
+case-run, 3 runs each, temperature 0, 10 parallel workers for the live run. Metrics map to the brief's criteria
 (correct action, grounded evidence, policy followed, escalation correct, latency and call counts) and are reported as
-mean ± std over runs. Every LLM exchange was recorded to [evals/cassettes/](evals/cassettes/); replay reproduces the
-committed numbers exactly, offline, with no key.
+mean ± std over runs. Every model exchange was recorded to [evals/cassettes/](evals/cassettes/) (7 MB, no headers or
+keys). After an independent review found four guardrail bugs (below), the committed results were **regenerated by
+replaying those recorded exchanges through the corrected guardrails** — no new model calls for the original 35 cases;
+the two new cases were recorded live. Replay reproduces the committed numbers exactly, offline, with no key, and CI
+checks that on every push.
 
 ```bash
 LLM_MODE=record python -m evals.run_eval --arch A B R --runs 3 --workers 10   # live (needs a key)
@@ -158,17 +170,17 @@ LLM_MODE=replay python -m evals.run_eval --arch A B R --runs 3 --check        # 
 
 | Metric | A · single agent | B · staged (2 agents) | R · rules only |
 |---|---:|---:|---:|
-| Recommendation accuracy (final decision) | 89.5% ± 1.4 | 96.2% ± 2.7 | 88.6% |
-| Recommendation accuracy (agent, before guardrails) | 89.1% ± 1.5 | 97.1% ± 2.3 | n/a |
-| Next-step owner accuracy | 90.5% ± 1.4 | 96.2% ± 2.7 | 88.6% |
-| Agent evidence grounded before guardrails | 96.3% ± 0.5 | 96.4% ± 1.1 | n/a |
-| Ungrounded evidence items removed per case | 0.22 ± 0.04 | 0.24 ± 0.06 | n/a |
+| Recommendation accuracy (final decision) | 90.1% ± 1.3 | 96.4% ± 2.5 | 88.9% |
+| Recommendation accuracy (agent, before guardrails) | 89.4% ± 1.4 | 97.2% ± 2.3 | n/a |
+| Next-step owner accuracy | 91.0% ± 1.3 | 97.3% ± 2.2 | 88.9% |
+| Agent evidence grounded before guardrails | 96.4% ± 0.5 | 96.4% ± 1.1 | n/a |
+| Ungrounded evidence items removed per case | 0.21 ± 0.04 | 0.24 ± 0.05 | n/a |
 | Approvals exact match | 100.0% | 100.0% | 100.0% |
 | Approvals recall | 100.0% | 100.0% | 100.0% |
-| Raw policy adherence (agent agreed with engine, no override) | 99.0% ± 1.4 | 95.2% ± 2.8 | n/a |
+| Raw policy adherence (agent agreed with engine, no override) | 99.1% ± 1.4 | 95.2% ± 2.8 | n/a |
 | Guardrail overrides per case | 0.00 | 0.01 ± 0.01 | 0.00 |
-| Human-handoff decision accuracy | 99.1% ± 1.4 | 98.1% ± 1.4 | 100.0% |
-| Handoff precision | 98.6% ± 2.1 | 97.1% ± 2.1 | 100.0% |
+| Human-handoff decision accuracy | 99.1% ± 1.3 | 98.2% ± 1.3 | 100.0% |
+| Handoff precision | 98.7% ± 1.9 | 97.3% ± 1.9 | 100.0% |
 | Handoff recall | 100.0% | 100.0% | 100.0% |
 | Under-escalations (final, count per run) | 0.00 | 0.00 | 0.00 |
 | Under-escalations by the agent before guardrails (count per run) | 0.00 | 0.00 | n/a |
@@ -179,16 +191,16 @@ LLM_MODE=replay python -m evals.run_eval --arch A B R --runs 3 --check        # 
 | Injection resistance (attack cases) | 100.0% | 100.0% | 100.0% |
 | Injected case approvals equal clean control | 100.0% | 100.0% | 100.0% |
 | Degraded-mode correctness (tool outage cases) | 100.0% | 100.0% | 100.0% |
-| Fail-safe rate (AI unavailable / invalid output) | 3.8% ± 1.4 | 0.9% ± 1.4 | 0.0% |
-| Cases passing every check | 89.5% ± 1.4 | 96.2% ± 2.7 | 88.6% |
-| Latency p50 (ms) | 9,659 ± 999 | 21,503 ± 8,784 | 2 ± 0 |
-| Latency p95 (ms) | 24,818 ± 11,403 | 48,281 ± 23,614 | 879 ± 30 |
-| LLM calls per case | 3.08 ± 0.01 | 3.47 ± 0.10 | 0.00 |
-| Tool calls per case | 7.03 | 7.40 ± 0.06 | 5.97 |
-| Input tokens per case | 8881.30 ± 377.24 | 9297.83 ± 459.29 | 0.00 |
-| Output tokens per case | 920.92 ± 35.32 | 1449.21 ± 64.13 | 0.00 |
+| Unplanned fail-safe rate (invalid output / no decision) | 3.7% ± 1.3 | 2.8% ± 2.3 | 0.0% |
+| Cases passing every check | 90.1% ± 1.3 | 96.4% ± 2.5 | 88.9% |
+| Latency p50 (ms) | 9,659 ± 999 | 20,572 ± 8,748 | 2 ± 0 |
+| Latency p95 (ms) | 25,703 ± 10,702 | 47,928 ± 23,376 | 877 ± 30 |
+| LLM calls per case | 3.00 | 3.37 ± 0.10 | 0.00 |
+| Tool calls per case | 7.00 | 7.35 ± 0.06 | 5.97 |
+| Input tokens per case | 8639.20 ± 352.17 | 8986.11 ± 477.60 | 0.00 |
+| Output tokens per case | 893.32 ± 29.27 | 1397.44 ± 61.00 | 0.00 |
 | Estimated cost per case (USD) | n/a | n/a | n/a |
-| Same recommendation across runs | 91.4% | 94.3% | 100.0% |
+| Same recommendation across runs | 91.9% | 94.6% | 100.0% |
 
 **Final recommendation accuracy by category:**
 
@@ -201,57 +213,75 @@ LLM_MODE=replay python -m evals.run_eval --arch A B R --runs 3 --check        # 
 | incomplete | 4 | 100% | 100% | 100% |
 | injection | 4 | 100% | 100% | 100% |
 | injection_control | 2 | 100% | 100% | 100% |
+| llm_only | 1 | 100% | 100% | n/a |
+| llm_unavailable | 1 | 100% | 100% | n/a |
+| policy_block | 1 | 100% | 100% | 100% |
 | security_threshold | 9 | 100% | 100% | 100% |
 | starter | 10 | 90% | 93% | 90% |
-| synthetic | 25 | 89% | 97% | 88% |
+| synthetic | 27 | 90% | 98% | 88% |
 | tier_t1 | 6 | 89% | 100% | 100% |
 | tool_unavailable | 4 | 100% | 100% | 100% |
 | vendor_conflict | 5 | 100% | 100% | 100% |
-| vendor_risk | 3 | 100% | 100% | 100% |
+| vendor_risk | 4 | 100% | 100% | 100% |
 
 Per-category tables, every failure with expected vs actual, and the uncertainty note:
-[evals/results/summary.md](evals/results/summary.md) (raw rows: `results.json`, `per_case.csv`).
+[evals/results/summary.md](evals/results/summary.md) (raw rows: `results.json`, `per_case.csv`, and
+`evaluation_results.csv` in the starter template's format).
 
 **Reading the results honestly**
 
 - **Code carries safety, AI carries judgement.** Because the policy engine and guardrails are shared, all three rows
   get approvals 100% exact, required flags 100%, missing-information recall 100%, 0 under-escalations, 100% injection
-  resistance and 100% degraded-mode correctness. The rules-only row already reaches 88.6%; what the LLM adds is
-  measurable mainly on *existing-tool fit* (R 43% → A 57% → B 81%) plus evidence synthesis and requester questions.
-- **Where A fails:** it usually recommends approval when an approved company-wide tool already covers the need
-  (S-EXT-01/02/03 in most runs, REQ-1008 once), and once over-redirected / once over-escalated REQ-1010.
-- **Where B fails:** REQ-1008 twice and S-EXT-03 twice — once because the guardrail overrode a correct redirect that
-  lacked grounded catalog evidence (a conservative guardrail costing accuracy).
-- **Fail-safes are rare and still safe:** A 4/105 case-runs (S-INC-03 ×3: the agent stopped without submitting on an
-  unknown requester; REQ-1006 once: evidence items without `source_tool`), B 1/105 (malformed evidence pack). Each
-  produced the correct conservative outcome via the deterministic fallback.
-- **Raw policy adherence** (agent draft agreed with the engine before guardrails) is 99.0% for A and 95.2% for B —
-  mostly the agent dropping purchase approvals when it recommends a redirect; guardrails restore them.
-- **Groundedness** is ~96% for both; the ~0.2 items removed per case are almost all evidence without a record ID
-  (37 of 47 removals), the rest cite IDs or numbers absent from the cited output.
-- **Latency** includes queueing at the provider with 10 parallel workers (B's p50 varies ±8.8 s between runs).
+  resistance and 100% degraded-mode correctness — partly by construction, since labels and engine encode the same
+  policy reading. The rules-only row already reaches 88.9%; what the LLM adds is measurable mainly on
+  *existing-tool fit* (R 43% → A 57% → B 81%) plus evidence synthesis and requester questions.
+- **Where A fails (11 of 111 case-runs):** it usually recommends approval when an approved company-wide tool already
+  covers the need (S-EXT-01 and S-EXT-03 in all 3 runs, S-EXT-02 in 2, REQ-1008 in 1), and once over-redirected /
+  once over-escalated REQ-1010.
+- **Where B fails (4 of 111):** REQ-1008 twice (approved instead of redirecting) and S-EXT-03 twice — once the agent
+  escalated, once the guardrail replaced a redirect that cited no grounded catalog evidence with an escalation.
+- **Unplanned fail-safes are rare and still safe:** A 4/108 case-runs (S-INC-03 ×3: the agent stopped without
+  submitting on an unknown requester; REQ-1006 once: evidence items without `source_tool`), B 3/108 (REQ-1004 once and
+  S-BLK-01 twice: the analyst sent `null` or a structured object where the evidence-pack schema expects text, and one
+  repair round-trip did not fix it). Every one still produced the correct conservative outcome via the deterministic fallback. The
+  deliberate outage case (S-LLM-01) fails safe in all runs for both.
+- **Raw policy adherence** (agent draft agreed with the engine before guardrails) is 99.1% for A and 95.2% for B. B's
+  5 non-adherent case-runs are 4 redirects that left out the purchase approvals and 1 redirect without grounded
+  catalog evidence; A's single one is also an omitted approval on a redirect. Guardrails restore all of them.
+- **Groundedness** is 96.4% for both; the ~0.2 items removed per case are mostly evidence without any record ID
+  (37 of 47 removals); 6 cite IDs absent from the cited output and 4 contain numbers absent from it.
+- **Latency** includes queueing at the provider with 10 parallel workers (B's p50 varies ±8.7 s between runs).
   Cost is reported as tokens; set `PRICE_PER_1M_*` to get dollars.
+- **Review fixes (applied before these numbers):** an independent review of the first results found that a redirect
+  without catalog evidence fell back to *approval*, a staged-run outage was labelled `agent_output_invalid`, record
+  IDs were matched as substrings (so `["data"]` counted as grounded), and an agent escalation could leave
+  `handoff=false`. All four were fixed with regression tests and the results regenerated by replay; the headline moved
+  from A 89.5% / B 96.2% (35 cases) to A 90.1% / B 96.4% (37 cases).
 - **Iteration disclosure:** a first recorded run (prompt `2026-10-08.2`) was stopped after 65 of 315 case-runs
   because A redirected add-on purchases (extra seats, add-on modules, training) to "use existing tool". The prompt was
   clarified in general terms (add-on vs duplicate, budget call after the profile, handoff semantics) and the whole
   evaluation re-recorded. Labels did not change. Log: [evals/results/history/](evals/results/history/).
-- **Uncertainty:** 35 cases; one case ≈ 2.9 points. B's lead is ~2–3 cases but consistent: every B run beats every
-  A run, and paired by case-run B is right where A is wrong 8 times vs the reverse once.
+- **Uncertainty:** 37 cases; one case ≈ 2.7 points. B's lead is ~2–3 cases but consistent: every B run (100 / 94.6 /
+  94.6%) beats every A run (91.9 / 89.2 / 89.2%), and paired by case-run B is right where A is wrong 8 times vs the
+  reverse once.
 
 ## 8. Architecture comparison & final ship decision
 
-**Ship B (staged analyst → reviewer).** Applying the rule pre-registered before the first run (*ship A unless B
-beats it on a safety-critical metric or on accuracy by more than run-to-run noise, at an acceptable cost*):
+**Ship B (staged analyst → reviewer).** The rule was pre-registered before the first run: *ship A unless B beats it
+on a safety-critical metric (under-escalation, raw policy adherence, injection resistance, groundedness) or on
+recommendation accuracy by more than run-to-run noise, at an acceptable latency/cost increase; ties go to A.*
 
-- B beats A on recommendation accuracy beyond run-to-run noise: 96.2% ± 2.7 vs 89.5% ± 1.4; per run 100 / 94.3 / 94.3
-  vs 91.4 / 88.6 / 88.6.
-- Safety-critical metrics tie (0 under-escalations, 100% injection resistance, ~96% grounded evidence, 100% exact
-  approvals); A's higher raw adherence (99.0% vs 95.2%) is absorbed by the guardrails.
-- Cost: median latency 9.7 s → 21.5 s, output tokens +57%, LLM calls 3.08 → 3.47 per case — acceptable for an
-  asynchronous approval workflow measured in hours or days.
+- **Accuracy clause — met.** 96.4% ± 2.5 vs 90.1% ± 1.3; every B run beats every A run (100 / 94.6 / 94.6 vs
+  91.9 / 89.2 / 89.2); paired 8 vs 1. The gain is the existing-tool judgement (81% vs 57%).
+- **Safety-critical metrics — B does not win any, and loses one.** Under-escalation 0 vs 0, injection resistance
+  100% vs 100%, groundedness 96.4% vs 96.4% (ties); raw policy adherence favours A, 99.1% vs 95.2%. That gap is B's
+  agent leaving purchase approvals off redirect drafts (4 of 5 cases); the guardrails restore them, so final
+  approvals are 100% exact for both and no unsafe decision reached a human.
+- **Cost — acceptable.** Median latency 9.7 s → 20.6 s (p95 25.7 s → 47.9 s), output tokens +56% (893 → 1,397),
+  LLM calls 3.00 → 3.37 per case. Approvals take hours to days, so an extra ~11 s per analysis does not matter.
 
-A would be the right answer if B's edge disappeared on a larger set, or if a single agent with an explicit fit-check
-step matched B; the memo lists what would change the decision.
+A would be the right answer if B's edge disappeared on a larger set, if its raw adherence gap ever produced an unsafe
+final decision, or if a single agent with an explicit fit-check step matched B.
 
 Full reasoning, evidence table and what would change the decision: [docs/DECISION_MEMO.md](docs/DECISION_MEMO.md).
 
@@ -274,8 +304,9 @@ every failure, a hard-coded launcher port, the unimplemented adapter, and a depe
 
 ## 11. Known limitations & next steps
 
-- **Small, partly synthetic test set:** 35 cases (25 written for this project). Labels encode my reading of the policy;
-  the ambiguous points are explicit assumptions (A3–A7), and the edge between A and B rests on ~2–3 cases.
+- **Small, partly synthetic test set:** 37 cases (27 written for this project). Labels encode my reading of the policy,
+  the same reading the engine encodes, so the eval cannot catch a policy-encoding mistake; the ambiguous points are
+  explicit assumptions (A3–A7), and the edge between A and B rests on ~2–3 cases.
 - **One model:** results are for Gemini 2.5 Flash via OpenRouter; another model may change the A/B gap.
 - **Existing-tool fit is still the weakest area** (B 81%). The catalog has no seat-utilisation or owner data, so
   spare capacity cannot be verified.
@@ -283,12 +314,19 @@ every failure, a hard-coded launcher port, the unimplemented adapter, and a depe
   not changed, but some overfitting risk remains. A held-out set of real requests is the next step.
 - **Injection scanner is pattern-based:** it catches the tested phrasings; a novel phrasing could pass the scanner.
   The outcome stays safe because policy facts never come from free text and guardrails bound what the agent can do.
+- **Groundedness is citation-level:** a sentence that cites a real record and real numbers but draws the wrong
+  conclusion passes. Final outcomes do not depend on agent prose (approvals, flags and escalation come from code).
+- **Structured-output brittleness:** strict text fields in the agent schemas caused all 3 of B's unplanned
+  fail-safes (`null` or an object where text was expected). Coercing such values to text is the obvious fix; it was
+  not applied because it changes every recorded request and would force a full re-record.
 - **UI verification:** exercised through API tests, the launcher test, a JS syntax check and a headless-Chrome
   render (the screenshot above); there are no automated browser-interaction tests. The workflow strip animates on
   request/response rather than streaming live tool calls.
-- **Simulated identity:** the reviewer role is a selector, not authentication; no RBAC.
-- **Next steps:** a single-agent variant with an explicit fit-check step; a larger real-request eval set; async
-  analysis on submission; auth/RBAC; seat-utilisation data; monitoring of override rate and groundedness in production.
+- **Simulated identity:** the reviewer role is a selector, not authentication; sign-offs are enforced per role but
+  anyone can pick any role (no RBAC).
+- **Next steps:** a single-agent variant with an explicit fit-check step; a larger real-request eval set; lenient
+  value coercion in agent schemas; async analysis on submission; auth/RBAC; seat-utilisation data; monitoring of
+  override rate and groundedness in production.
 
 ## 12. Project structure, tests, configuration
 
@@ -302,7 +340,7 @@ src/
   orchestrator.py · solution.py (starter adapter) · cli.py · store.py (SQLite) · data_access.py · vendor_client.py
 mock_api/      mock vendor-risk service (fixed)          data/  starter data + policy (unchanged)
 evals/         cases.yaml · run_eval.py · metrics.py · results/ · cassettes/ · LABEL_CHANGES.md · starter public harness
-tests/         126 offline tests: policy boundaries, tools, vendor failures, guardrails, injection, A and B with a scripted fake LLM, record/replay, API, launcher, memo length
+tests/         132 offline tests: policy boundaries, tools, vendor failures, guardrails, injection, A and B with a scripted fake LLM, record/replay, API, launcher, memo length
 docs/          ARCHITECTURE · DECISION_MEMO · ASSUMPTIONS · STARTER_FIXES · DATA_NOTES · DEMO
 start.py · Makefile · requirements(-dev).txt · .env.example · .github/workflows/ci.yml
 ```

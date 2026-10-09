@@ -80,8 +80,9 @@ sequenceDiagram
   code from the structured request and the recorded tool outputs. If the agent calls a tool with arguments that
   differ from the request (e.g. a manipulated amount), code reruns the canonical call instead of trusting it.
 - **Containment:** a manipulated model can only add approvals (with a valid rule ID), flags, questions and grounded
-  evidence. It cannot remove approvals or flags, approve a request the policy escalates, reject without a block, or
-  change a request's status — only the human-action endpoint does that.
+  evidence. It cannot remove approvals or flags, approve a request the policy escalates, reject without a block,
+  redirect without grounded catalog evidence, or change a request's status — only the human-action endpoint does
+  that, and a request becomes Approved only after every required approver role has signed off.
 
 ## Failure modes and fallbacks
 
@@ -92,6 +93,19 @@ sequenceDiagram
 | Tool bug / bad arguments | Error envelope back to the model (`INVALID_ARGUMENTS`, `UNKNOWN_TOOL`, `TOOL_ERROR`); the loop continues |
 | LLM 429 / 5xx / timeout | 60 s timeout, up to 3 retries with backoff; then fail-safe: deterministic decision + `ai_unavailable`, handed to a human |
 | Invalid structured output | One repair round-trip with the validation errors; then fail-safe + `agent_output_invalid` |
+| Redirect without evidence | `use_existing_tool` with no grounded catalog evidence becomes an escalation (never an approval) |
 | Model never submits / loops | One nudge; 10-turn cap; then fail-safe |
-| No API key | Starter requests replay their recorded eval run; anything else gets the deterministic-only decision |
+| No API key | Starter requests replay a representative recorded eval run (most common recommendation); new requests and runs with a simulated fault get the deterministic-only decision |
 | Replay drift (prompt/code changed) | Request-hash mismatch → loud failure in eval (`--check`), deterministic fallback with a warning in the UI |
+
+## What was intentionally not built
+
+- **No agent framework** (LangChain, LangGraph, CrewAI, …): the loop is ~120 lines and every step is inspectable.
+- **No more than two agents**: B is the minimum staging that tests "critic over evidence"; more agents earned nothing.
+- **No RAG over the policy text**: the policy is short and normative, so it is encoded as rules with IDs and tested at
+  every boundary instead of being retrieved and paraphrased by a model.
+- **No autonomous actions**: no purchasing, approvals, budget changes or vendor-term acceptance — recommendations only.
+- **No real integrations or auth**: data comes from the starter files and the mock service; reviewer identity is a
+  role selector. The tool contracts are where real HRIS/ERP/vendor APIs and RBAC would plug in.
+- **No live streaming of tool calls to the UI**: the trace is shown after a run; the workflow strip animates on
+  request/response.
