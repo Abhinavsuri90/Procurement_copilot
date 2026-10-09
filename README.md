@@ -340,7 +340,7 @@ src/
   orchestrator.py · solution.py (starter adapter) · cli.py · store.py (SQLite) · data_access.py · vendor_client.py
 mock_api/      mock vendor-risk service (fixed)          data/  starter data + policy (unchanged)
 evals/         cases.yaml · run_eval.py · metrics.py · results/ · cassettes/ · LABEL_CHANGES.md · starter public harness
-tests/         132 offline tests: policy boundaries, tools, vendor failures, guardrails, injection, A and B with a scripted fake LLM, record/replay, API, launcher, memo length
+tests/         133 offline tests: policy boundaries, tools, vendor failures, guardrails, injection, A and B with a scripted fake LLM, record/replay, API, launcher, memo length
 docs/          ARCHITECTURE · DECISION_MEMO · ASSUMPTIONS · STARTER_FIXES · DATA_NOTES · DEMO
 start.py · Makefile · requirements(-dev).txt · .env.example · .github/workflows/ci.yml
 ```
