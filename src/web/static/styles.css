@@ -5,6 +5,8 @@
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; color: var(--ink);
 }
 * { box-sizing: border-box; }
+/* Component display rules (grid/flex) must not override the hidden attribute used for view and state toggles. */
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); }
 h2 { font-size: 18px; margin: 0; }
 h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 6px; }
