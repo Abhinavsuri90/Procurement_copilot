@@ -2,16 +2,38 @@ name: ci
 on:
   push:
   pull_request:
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
-      - run: python -m pip install -r requirements-dev.txt
-      - run: ruff check .
-      - run: pytest -q
-      - name: Replay the committed evaluation offline (no API key)
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install
+        run: python -m pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Unit, API, agent and launcher tests (offline, no API key)
+        run: pytest -q
+      - name: Replay the committed evaluation offline and require identical results
         run: LLM_MODE=replay python -m evals.run_eval --arch A B R --runs 3 --workers 8 --check
+      - name: Starter preflight and public harness through handle_request (replayed, mock service running)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python verify_setup.py
+          python -m uvicorn mock_api.app:app --host 127.0.0.1 --port 8001 --log-level warning &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8001/health >/dev/null && break; sleep 1; done
+          for arch in single staged; do
+            LLM_MODE=replay python evals/run_public_evals.py --architecture "$arch" | tee "public_$arch.txt"
+            grep -q "Minimum checks passed: 6/6" "public_$arch.txt"
+          done
