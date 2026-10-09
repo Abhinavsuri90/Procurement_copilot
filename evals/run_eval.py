@@ -27,6 +27,7 @@ from fastapi.testclient import TestClient
 
 from evals.metrics import HEADLINE, aggregate, per_tag, run_metrics, score_case, stability
 from mock_api.app import create_app
+from src.agents.llm import LLMError, ScriptedBackend
 from src.agents.prompts import PROMPT_VERSION
 from src.config import ROOT, get_settings
 from src.data_access import Repository
@@ -54,8 +55,12 @@ def run_one(case: dict[str, Any], arch: str, run: int, settings) -> dict[str, An
     repo = Repository(overlay=case.get("fixtures"))
     http = TestClient(create_app(repo.vendor_risk))  # the real mock service app, mounted in-process per case
     request = build_request(case, repo)
+    backend = None
+    if case.get("llm_fault") == "down" and arch != "R":  # simulated provider outage (recorded like any other call)
+        backend = ScriptedBackend([LLMError("simulated outage: HTTP 503 from the model provider")] * 20,
+                                  model=settings.llm_model)
     result = analyze(request, arch, repo=repo, settings=settings, fault=FAULTS[case.get("fault")], http=http,
-                     case_key=(case["id"], run))
+                     case_key=(case["id"], run), backend=backend)
     decision = result.decision.model_dump(mode="json")
     _rules_latency(settings, arch, case["id"], run, decision)
     return {"case_id": case["id"], "architecture": arch, "run": run, "decision": decision,
@@ -107,7 +112,8 @@ def summarise(rows: list[dict], cases: list[dict], archs: list[str], runs: int, 
                    "architectures": archs, "as_of": settings.as_of.isoformat(), "wall_clock_s": round(wall_s, 1)},
         "note": (f"{len(cases)} cases x {runs} run(s) per architecture, model {settings.llm_model}, temperature "
                  f"{settings.llm_temperature}, {workers} parallel workers (latency includes queueing at the provider). "
-                 "Mean ± population std over runs. n is small: a 1-2 case difference (3-6 points) is within noise."),
+                 "Mean ± population std over runs. R (no model) skips the model-outage case. "
+                 "n is small: a 1-2 case difference (3-6 points) is within noise."),
         "headline_metrics": [{"key": k, "label": label} for k, label in HEADLINE],
         "overall": overall,
         "per_tag": per_tag_table,
@@ -199,7 +205,9 @@ def main(argv: list[str] | None = None) -> int:
     if settings.llm_mode == "replay":
         settings = dataclasses.replace(settings, llm_api_key="")
     cases = load_cases(args.cases)
-    jobs = [(c, a, n) for a in args.arch for n in range(1, args.runs + 1) for c in cases]
+    # Cases tagged llm_only test model failure handling; the rules-only row has no model, so it skips them.
+    jobs = [(c, a, n) for a in args.arch for n in range(1, args.runs + 1) for c in cases
+            if not (a == "R" and "llm_only" in c["tags"])]
     print(f"Running {len(jobs)} case-runs ({len(cases)} cases x {args.runs} runs x {args.arch}) "
           f"mode={settings.llm_mode} model={settings.llm_model} workers={args.workers}")
     start = time.perf_counter()
@@ -246,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
                     "owner_correct", "handoff_correct", "flag_recall", "missing_recall", "overrides",
                     "evidence_grounded", "evidence_total", "failsafe", "all_checks_pass", "latency_ms", "llm_calls",
                     "tool_calls", "tokens_in", "tokens_out"]
-            writer = csv.DictWriter(f, fieldnames=cols)
+            writer = csv.DictWriter(f, fieldnames=cols, lineterminator="\n")
             writer.writeheader()
             for r in rows:
                 writer.writerow({"architecture": r["architecture"], "case_id": r["case_id"], "run": r["run"],
