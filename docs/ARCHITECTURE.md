@@ -65,6 +65,15 @@ sequenceDiagram
   UI->>API: POST /actions -> audit log
 ```
 
+## Live progress
+
+`POST /api/requests/{id}/analyze?stream=true` starts the analysis in a background thread and returns its `run_id`;
+the UI polls `GET /api/runs/{run_id}/progress?after=N` every 400 ms. Events are phase changes (request, understand,
+evidence, recommend, done), "model call started", and every completed model and tool call. A trace listener only
+observes the run: nothing sent to the model changes, so recorded runs replay identically. Without `stream=true` the
+endpoint stays synchronous for API clients. Each completed analysis and human action is also logged as one JSON line
+keyed by `run_id`.
+
 ## Responsibilities (design principle, implemented literally)
 
 | AI | CODE | HUMAN |
@@ -107,5 +116,5 @@ sequenceDiagram
 - **No autonomous actions**: no purchasing, approvals, budget changes or vendor-term acceptance — recommendations only.
 - **No real integrations or auth**: data comes from the starter files and the mock service; reviewer identity is a
   role selector. The tool contracts are where real HRIS/ERP/vendor APIs and RBAC would plug in.
-- **No live streaming of tool calls to the UI**: the trace is shown after a run; the workflow strip animates on
-  request/response.
+- **No push transport (SSE/WebSocket)**: progress is polled every 400 ms, which is simpler and good enough for runs
+  of 10-25 seconds.

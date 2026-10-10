@@ -10,7 +10,7 @@
 
 ## 1. Overview
 
-![Review screen: workflow strip, request queue, request details and the decision panel for REQ-1007](docs/img/ui-req-1007.png)
+![A live run of architecture B on REQ-1008: the workflow strip and activity log follow each model and tool call; the decision panel shows the redirect to TaskFlow with approvals, flags and cited evidence](docs/img/ui-live-run.png)
 
 Employees request new software; Procurement must check existing tools, team budget, vendor risk, security/privacy
 requirements and approval rules. The copilot does the evidence gathering and drafts the recommendation; code decides
@@ -39,14 +39,18 @@ python start.py          # creates .venv, installs requirements, starts both ser
   run with the outage switch on, get a deterministic-only decision handed to a human ("AI unavailable").
 - **CLI:** `python -m src.cli analyze REQ-1007` (B by default; `--arch A`, `--arch R`, `--fault down`, `--json`).
 - **Starter harness:** `python evals/run_public_evals.py --architecture single|staged` (calls `src.solution.handle_request`).
-- **Tests:** `pip install -r requirements-dev.txt && pytest && ruff check .` (offline, no key). CI runs lint, tests,
-  the offline replay check and the starter's preflight + public harness on Python 3.11 and 3.13 for every push.
+- **Tests:** `pip install -r requirements-dev.txt && pytest && ruff check . && mypy` (offline, no key).
+  **Browser end-to-end:** `pip install -r requirements-e2e.txt && python -m playwright install chromium && pytest -m e2e`
+  (drives the real UI through the real launcher). CI runs lint, types, tests, the offline replay check and the
+  starter's preflight + public harness on Python 3.11 and 3.13, plus the browser suite, on every push.
+- **API docs:** http://localhost:8000/docs (FastAPI/OpenAPI).
 - **Offline eval replay (no key):** `make eval-replay` or
   `LLM_MODE=replay python -m evals.run_eval --arch A B R --runs 3 --check` — reproduces the committed results exactly.
 
 ## 3. Product workflow
 
-The brief's five steps are the workflow strip at the top of the UI and light up as a run progresses:
+The brief's five steps are the workflow strip at the top of the UI. Runs stream their progress: each step lights up
+when it really happens, and a live activity log lists every model turn and tool call with its timing:
 
 | Step | In the product |
 |---|---|
@@ -132,6 +136,9 @@ and the recorded tool outputs — never from the agent's restatement:
 8. **No autonomy** — nothing is approved or purchased; only the human-action endpoint changes a request's status,
    and only after every required approver has signed off.
 
+Operationally: API inputs are bounded (oversized fields are rejected with 422 before they reach storage or a model),
+every analysis and human action is logged as one JSON line keyed by `run_id`, and every trace is persisted.
+
 | Edge case | Behaviour | Covered by |
 |---|---|---|
 | Incomplete / ambiguous request | `request_more_info`, missing fields + requester questions, nothing invented | REQ-1006, S-INC-01..03 + unit |
@@ -177,7 +184,7 @@ LLM_MODE=replay python -m evals.run_eval --arch A B R --runs 3 --check        # 
 | Ungrounded evidence items removed per case | 0.21 ± 0.04 | 0.24 ± 0.05 | n/a |
 | Approvals exact match | 100.0% | 100.0% | 100.0% |
 | Approvals recall | 100.0% | 100.0% | 100.0% |
-| Raw policy adherence (agent agreed with engine, no override) | 99.1% ± 1.4 | 95.2% ± 2.8 | n/a |
+| Raw policy adherence (agent agreed with engine, no override) | 99.0% ± 1.3 | 95.2% ± 2.8 | n/a |
 | Guardrail overrides per case | 0.00 | 0.01 ± 0.01 | 0.00 |
 | Human-handoff decision accuracy | 99.1% ± 1.3 | 98.2% ± 1.3 | 100.0% |
 | Handoff precision | 98.7% ± 1.9 | 97.3% ± 1.9 | 100.0% |
@@ -199,8 +206,22 @@ LLM_MODE=replay python -m evals.run_eval --arch A B R --runs 3 --check        # 
 | Tool calls per case | 7.00 | 7.35 ± 0.06 | 5.97 |
 | Input tokens per case | 8639.20 ± 352.17 | 8986.11 ± 477.60 | 0.00 |
 | Output tokens per case | 893.32 ± 29.27 | 1397.44 ± 61.00 | 0.00 |
-| Estimated cost per case (USD) | n/a | n/a | n/a |
+| Estimated cost per case (USD) | $0.00483 | $0.00619 | $0.00000 |
 | Same recommendation across runs | 91.9% | 94.6% | 100.0% |
+
+**A vs B, paired (same case, same run):**
+
+| Test | Result |
+|---|---|
+| Case-runs compared | 111 |
+| B right & A wrong / A right & B wrong | 8 / 1 |
+| Exact McNemar test on case-runs | p = 0.039 |
+| Cases where B / A does better (mean over runs) | 4 / 1 of 37 |
+| Sign test on cases (conservative) | p = 0.375 |
+| Estimated cost per 1,000 analyses | A $4.83 · B $6.19 · R $0.00 |
+
+Cost uses OpenRouter's published price for the evaluated model ($0.30 / $2.50 per 1M input / output tokens, fetched
+2026-10-09, [evals/pricing.json](evals/pricing.json)).
 
 **Final recommendation accuracy by category:**
 
@@ -261,9 +282,10 @@ Per-category tables, every failure with expected vs actual, and the uncertainty 
   because A redirected add-on purchases (extra seats, add-on modules, training) to "use existing tool". The prompt was
   clarified in general terms (add-on vs duplicate, budget call after the profile, handoff semantics) and the whole
   evaluation re-recorded. Labels did not change. Log: [evals/results/history/](evals/results/history/).
-- **Uncertainty:** 37 cases; one case ≈ 2.7 points. B's lead is ~2–3 cases but consistent: every B run (100 / 94.6 /
-  94.6%) beats every A run (91.9 / 89.2 / 89.2%), and paired by case-run B is right where A is wrong 8 times vs the
-  reverse once.
+- **Uncertainty:** 37 cases; one case ≈ 2.7 points. B's lead is consistent across runs — every B run (100 / 94.6 /
+  94.6%) beats every A run (91.9 / 89.2 / 89.2%) and an exact McNemar test on paired case-runs gives p = 0.039 — but it
+  rests on few cases: by case, B does better on 4 and A on 1, and that sign test (p = 0.375) is not significant.
+  Treat the edge as real across runs but not yet proven across cases.
 
 ## 8. Architecture comparison & final ship decision
 
@@ -278,7 +300,12 @@ recommendation accuracy by more than run-to-run noise, at an acceptable latency/
   agent leaving purchase approvals off redirect drafts (4 of 5 cases); the guardrails restore them, so final
   approvals are 100% exact for both and no unsafe decision reached a human.
 - **Cost — acceptable.** Median latency 9.7 s → 20.6 s (p95 25.7 s → 47.9 s), output tokens +56% (893 → 1,397),
-  LLM calls 3.00 → 3.37 per case. Approvals take hours to days, so an extra ~11 s per analysis does not matter.
+  LLM calls 3.00 → 3.37 per case, cost $4.83 → $6.19 per 1,000 analyses. Approvals take hours to days, so an extra
+  ~11 s and ~0.14 cents per analysis do not matter.
+
+- **How sure?** The edge beats run-to-run noise (every run; McNemar p = 0.039 on paired case-runs), which is what the
+  rule asks. Across *cases* it is not yet significant (B better on 4, A on 1; sign test p = 0.375), so the decision
+  comes with a monitoring commitment rather than certainty.
 
 A would be the right answer if B's edge disappeared on a larger set, if its raw adherence gap ever produced an unsafe
 final decision, or if a single agent with an explicit fit-check step matched B.
@@ -319,9 +346,10 @@ every failure, a hard-coded launcher port, the unimplemented adapter, and a depe
 - **Structured-output brittleness:** strict text fields in the agent schemas caused all 3 of B's unplanned
   fail-safes (`null` or an object where text was expected). Coercing such values to text is the obvious fix; it was
   not applied because it changes every recorded request and would force a full re-record.
-- **UI verification:** exercised through API tests, the launcher test, a JS syntax check and a headless-Chrome
-  render (the screenshot above); there are no automated browser-interaction tests. The workflow strip animates on
-  request/response rather than streaming live tool calls.
+- **UI coverage:** 8 Playwright tests drive the real UI (happy path with live progress, sign-offs, injection, outage,
+  new request, trace, evaluation view) in CI, but only in no-key replay mode; live-model UI runs were checked by hand.
+- **Statistical power:** the A/B edge is significant across runs but not across cases (sign test p = 0.375); a larger,
+  real-request test set is needed before treating it as settled.
 - **Simulated identity:** the reviewer role is a selector, not authentication; sign-offs are enforced per role but
   anyone can pick any role (no RBAC).
 - **Next steps:** a single-agent variant with an explicit fit-check step; a larger real-request eval set; lenient
@@ -340,9 +368,10 @@ src/
   orchestrator.py · solution.py (starter adapter) · cli.py · store.py (SQLite) · data_access.py · vendor_client.py
 mock_api/      mock vendor-risk service (fixed)          data/  starter data + policy (unchanged)
 evals/         cases.yaml · run_eval.py · metrics.py · results/ · cassettes/ · LABEL_CHANGES.md · starter public harness
-tests/         133 offline tests: policy boundaries, tools, vendor failures, guardrails, injection, A and B with a scripted fake LLM, record/replay, API, launcher, memo length
+tests/         139 offline tests (policy boundaries, tools, vendor failures, guardrails, injection, A and B with a scripted fake LLM,
+               record/replay, API + streaming, launcher, memo length) + tests/e2e: 8 Playwright browser tests
 docs/          ARCHITECTURE · DECISION_MEMO · ASSUMPTIONS · STARTER_FIXES · DATA_NOTES · DEMO
-start.py · Makefile · requirements(-dev).txt · .env.example · .github/workflows/ci.yml
+start.py · Makefile · requirements(-dev,-e2e).txt · .env.example · .github/workflows/ci.yml (lint, mypy, tests, replay, public harness, e2e)
 ```
 
 | Variable | Default | Purpose |
@@ -354,4 +383,4 @@ start.py · Makefile · requirements(-dev).txt · .env.example · .github/workfl
 | `VENDOR_SERVICE_FAULT` | – | `down`, `slow`, `flaky` (testing) |
 | `AS_OF_DATE` | policy reference date | date used for expiry checks |
 | `APP_PORT`, `DB_PATH` | 8000, `var/app.db` | |
-| `PRICE_PER_1M_INPUT_TOKENS` / `…OUTPUT…` | – | enables cost estimates in the eval |
+| `PRICE_PER_1M_INPUT_TOKENS` / `…OUTPUT…` | from `evals/pricing.json` | override the cited model price used for cost estimates |

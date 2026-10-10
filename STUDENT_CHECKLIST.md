@@ -3,7 +3,7 @@
 Before submitting, confirm that:
 
 - [x] `python verify_setup.py` passes in your project environment. — *also run in CI on every push*
-- [x] The product can process a request end-to-end. — `python start.py` → http://localhost:8000; `tests/test_api.py`
+- [x] The product can process a request end-to-end. — `python start.py` → http://localhost:8000; `tests/test_api.py`; browser suite `tests/e2e/` (Playwright, CI)
 - [x] Architecture A is a working single-agent baseline. — `src/agents/single_agent.py`
 - [x] Architecture B is a lightweight staged / 2-agent variant. — `src/agents/staged.py` (analyst → code handoff → reviewer)
 - [x] At least 3 tools are used; at least 1 tool/check is deterministic. — six tools, all deterministic (`src/tools/`); the policy engine is pure code
