@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import statistics
 from collections import defaultdict
 from typing import Any
@@ -196,8 +197,8 @@ def aggregate(per_run: list[dict[str, float | None]]) -> dict[str, dict[str, flo
         if not vals:
             out[key] = {"mean": None, "std": None}
             continue
-        out[key] = {"mean": round(statistics.fmean(vals), 4),
-                    "std": round(statistics.pstdev(vals), 4) if len(vals) > 1 else 0.0}
+        out[key] = {"mean": round(statistics.fmean(vals), 6),
+                    "std": round(statistics.pstdev(vals), 6) if len(vals) > 1 else 0.0}
     return out
 
 
@@ -215,3 +216,41 @@ def per_tag(rows: list[dict], cases: dict[str, dict]) -> dict[str, dict[str, flo
         for tag in cases[r["case_id"]]["tags"]:
             acc[tag].append(r["score"]["rec_correct"])
     return {t: round(statistics.fmean(v), 4) for t, v in sorted(acc.items())}
+
+
+def _two_sided_sign_test(k: int, n: int) -> float:
+    """Exact two-sided binomial test of k successes in n trials at p = 0.5 (McNemar / sign test)."""
+    if n == 0:
+        return 1.0
+    k = min(k, n - k)
+    tail = sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n
+    return min(1.0, 2 * tail)
+
+
+def paired_comparison(rows: list[dict], a: str = "A", b: str = "B") -> dict[str, Any]:
+    """Is the accuracy gap between two architectures more than chance? Two views of the same paired data."""
+    correct = {(r["architecture"], r["case_id"], r["run"]): bool(r["score"]["rec_correct"]) for r in rows}
+    pairs = [(ok, correct[(b, case, run)]) for (arch, case, run), ok in correct.items()
+             if arch == a and (b, case, run) in correct]
+    b_only = sum(1 for x, y in pairs if y and not x)
+    a_only = sum(1 for x, y in pairs if x and not y)
+    per_case: dict[str, dict[str, list[bool]]] = defaultdict(lambda: {a: [], b: []})
+    for (arch, case, _run), ok in correct.items():
+        if arch in (a, b):
+            per_case[case][arch].append(ok)
+    scored = [v for v in per_case.values() if v[a] and v[b]]
+    case_b = sum(1 for v in scored if statistics.fmean(v[b]) > statistics.fmean(v[a]))
+    case_a = sum(1 for v in scored if statistics.fmean(v[a]) > statistics.fmean(v[b]))
+    return {
+        "architectures": [a, b],
+        "case_runs": len(pairs),
+        "b_right_a_wrong": b_only,
+        "a_right_b_wrong": a_only,
+        "mcnemar_exact_p": round(_two_sided_sign_test(a_only, a_only + b_only), 4),
+        "cases": len(scored),
+        "cases_b_better": case_b,
+        "cases_a_better": case_a,
+        "case_sign_test_p": round(_two_sided_sign_test(case_a, case_a + case_b), 4),
+        "note": ("Runs of the same case are not independent, so the case-run test overstates certainty; the "
+                 "case-level sign test (mean correctness over runs per case) is the conservative view."),
+    }

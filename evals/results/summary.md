@@ -15,7 +15,7 @@ Model `google/gemini-2.5-flash`, prompt version `2026-10-08.3`, reference date 2
 | Ungrounded evidence items removed per case | 0.21 ± 0.04 | 0.24 ± 0.05 | n/a |
 | Approvals exact match | 100.0% | 100.0% | 100.0% |
 | Approvals recall | 100.0% | 100.0% | 100.0% |
-| Raw policy adherence (agent agreed with engine, no override) | 99.1% ± 1.4 | 95.2% ± 2.8 | n/a |
+| Raw policy adherence (agent agreed with engine, no override) | 99.0% ± 1.3 | 95.2% ± 2.8 | n/a |
 | Guardrail overrides per case | 0.00 | 0.01 ± 0.01 | 0.00 |
 | Human-handoff decision accuracy | 99.1% ± 1.3 | 98.2% ± 1.3 | 100.0% |
 | Handoff precision | 98.7% ± 1.9 | 97.3% ± 1.9 | 100.0% |
@@ -37,8 +37,21 @@ Model `google/gemini-2.5-flash`, prompt version `2026-10-08.3`, reference date 2
 | Tool calls per case | 7.00 | 7.35 ± 0.06 | 5.97 |
 | Input tokens per case | 8639.20 ± 352.17 | 8986.11 ± 477.60 | 0.00 |
 | Output tokens per case | 893.32 ± 29.27 | 1397.44 ± 61.00 | 0.00 |
-| Estimated cost per case (USD) | n/a | n/a | n/a |
+| Estimated cost per case (USD) | $0.00483 | $0.00619 | $0.00000 |
 | Same recommendation across runs | 91.9% | 94.6% | 100.0% |
+
+## A vs B: paired comparison
+
+| Test | Result |
+|---|---|
+| Case-runs compared | 111 |
+| B right & A wrong / A right & B wrong | 8 / 1 |
+| Exact McNemar test on case-runs | p = 0.039 |
+| Cases where B / A does better (mean over runs) | 4 / 1 of 37 |
+| Sign test on cases (conservative) | p = 0.375 |
+| Estimated cost per 1,000 analyses | A $4.83 · B $6.19 · R $0.00 |
+
+Runs of the same case are not independent, so the case-run test overstates certainty; the case-level sign test (mean correctness over runs per case) is the conservative view. Prices: https://openrouter.ai/api/v1/models (pricing.prompt / pricing.completion for google/gemini-2.5-flash), fetched 2026-10-09.
 
 ## Final recommendation accuracy by category
 

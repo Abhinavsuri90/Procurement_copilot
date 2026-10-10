@@ -1,9 +1,17 @@
 {
- "generated_at": "2026-10-09T18:22:23+00:00",
+ "generated_at": "2026-10-10T10:35:18+00:00",
  "config": {
   "model": "google/gemini-2.5-flash",
   "llm_mode": "replay",
   "temperature": 0.0,
+  "pricing": {
+   "model": "google/gemini-2.5-flash",
+   "input_usd_per_1m_tokens": 0.3,
+   "output_usd_per_1m_tokens": 2.5,
+   "source": "https://openrouter.ai/api/v1/models (pricing.prompt / pricing.completion for google/gemini-2.5-flash)",
+   "fetched": "2026-10-09",
+   "note": "Output tokens include the model's reasoning tokens, which OpenRouter bills at the completion rate."
+  },
   "prompt_version": "2026-10-08.3",
   "runs": 3,
   "workers": 12,
@@ -14,7 +22,7 @@
    "R"
   ],
   "as_of": "2026-09-30",
-  "wall_clock_s": 13.8
+  "wall_clock_s": 13.9
  },
  "note": "37 cases x 3 run(s) per architecture, model google/gemini-2.5-flash, temperature 0.0. Regenerated offline from the recorded model exchanges: latency, tokens and call counts are the values recorded during the live run (latency includes queueing at the provider). Mean \u00b1 population std over runs. R (no model) skips the model-outage case. n is small: a 1-2 case difference (3-6 points) is within noise.",
  "headline_metrics": [
@@ -146,24 +154,24 @@
  "overall": {
   "A": {
    "rec_accuracy": {
-    "mean": 0.9009,
-    "std": 0.0127
+    "mean": 0.900901,
+    "std": 0.012741
    },
    "raw_rec_accuracy": {
-    "mean": 0.8941,
-    "std": 0.0143
+    "mean": 0.894118,
+    "std": 0.014327
    },
    "owner_accuracy": {
-    "mean": 0.9099,
-    "std": 0.0127
+    "mean": 0.90991,
+    "std": 0.012741
    },
    "evidence_grounded_rate": {
-    "mean": 0.9636,
-    "std": 0.005
+    "mean": 0.963635,
+    "std": 0.005014
    },
    "ungrounded_removed": {
-    "mean": 0.2115,
-    "std": 0.0352
+    "mean": 0.211485,
+    "std": 0.035216
    },
    "approvals_exact": {
     "mean": 1.0,
@@ -174,20 +182,20 @@
     "std": 0.0
    },
    "raw_policy_adherence": {
-    "mean": 0.9905,
-    "std": 0.0135
+    "mean": 0.990476,
+    "std": 0.013469
    },
    "overrides_per_case": {
     "mean": 0.0,
     "std": 0.0
    },
    "handoff_accuracy": {
-    "mean": 0.991,
-    "std": 0.0127
+    "mean": 0.990991,
+    "std": 0.012741
    },
    "handoff_precision": {
-    "mean": 0.9867,
-    "std": 0.0189
+    "mean": 0.986667,
+    "std": 0.018856
    },
    "handoff_recall": {
     "mean": 1.0,
@@ -202,8 +210,8 @@
     "std": 0.0
    },
    "over_escalation_rate": {
-    "mean": 0.0256,
-    "std": 0.0363
+    "mean": 0.025641,
+    "std": 0.036262
    },
    "flag_recall": {
     "mean": 1.0,
@@ -230,20 +238,20 @@
     "std": 0.0
    },
    "failsafe_rate": {
-    "mean": 0.037,
-    "std": 0.0131
+    "mean": 0.037037,
+    "std": 0.013095
    },
    "all_checks_pass": {
-    "mean": 0.9009,
-    "std": 0.0127
+    "mean": 0.900901,
+    "std": 0.012741
    },
    "latency_p50_ms": {
     "mean": 9658.9,
-    "std": 999.0638
+    "std": 999.063785
    },
    "latency_p95_ms": {
-    "mean": 25702.7533,
-    "std": 10701.6911
+    "mean": 25702.753333,
+    "std": 10701.691124
    },
    "llm_calls_mean": {
     "mean": 3.0,
@@ -254,16 +262,16 @@
     "std": 0.0
    },
    "tokens_in_mean": {
-    "mean": 8639.1982,
-    "std": 352.1656
+    "mean": 8639.198198,
+    "std": 352.165588
    },
    "tokens_out_mean": {
-    "mean": 893.3243,
-    "std": 29.2749
+    "mean": 893.324324,
+    "std": 29.274874
    },
    "cost_per_case_usd": {
-    "mean": null,
-    "std": null
+    "mean": 0.004825,
+    "std": 0.000128
    },
    "stability": {
     "mean": 0.9189,
@@ -272,24 +280,24 @@
   },
   "B": {
    "rec_accuracy": {
-    "mean": 0.964,
-    "std": 0.0255
+    "mean": 0.963964,
+    "std": 0.025481
    },
    "raw_rec_accuracy": {
-    "mean": 0.9717,
-    "std": 0.0233
+    "mean": 0.971693,
+    "std": 0.023331
    },
    "owner_accuracy": {
-    "mean": 0.973,
-    "std": 0.0221
+    "mean": 0.972973,
+    "std": 0.022067
    },
    "evidence_grounded_rate": {
-    "mean": 0.9639,
-    "std": 0.011
+    "mean": 0.963871,
+    "std": 0.011039
    },
    "ungrounded_removed": {
-    "mean": 0.2374,
-    "std": 0.0548
+    "mean": 0.237426,
+    "std": 0.054778
    },
    "approvals_exact": {
     "mean": 1.0,
@@ -300,20 +308,20 @@
     "std": 0.0
    },
    "raw_policy_adherence": {
-    "mean": 0.9518,
-    "std": 0.0283
+    "mean": 0.951805,
+    "std": 0.028315
    },
    "overrides_per_case": {
-    "mean": 0.009,
-    "std": 0.0127
+    "mean": 0.009009,
+    "std": 0.012741
    },
    "handoff_accuracy": {
-    "mean": 0.982,
-    "std": 0.0127
+    "mean": 0.981982,
+    "std": 0.012741
    },
    "handoff_precision": {
-    "mean": 0.9733,
-    "std": 0.0189
+    "mean": 0.973333,
+    "std": 0.018856
    },
    "handoff_recall": {
     "mean": 1.0,
@@ -328,8 +336,8 @@
     "std": 0.0
    },
    "over_escalation_rate": {
-    "mean": 0.0513,
-    "std": 0.0363
+    "mean": 0.051282,
+    "std": 0.036262
    },
    "flag_recall": {
     "mean": 1.0,
@@ -356,40 +364,40 @@
     "std": 0.0
    },
    "failsafe_rate": {
-    "mean": 0.0278,
-    "std": 0.0227
+    "mean": 0.027778,
+    "std": 0.02268
    },
    "all_checks_pass": {
-    "mean": 0.964,
-    "std": 0.0255
+    "mean": 0.963964,
+    "std": 0.025481
    },
    "latency_p50_ms": {
-    "mean": 20572.2333,
-    "std": 8748.1858
+    "mean": 20572.233333,
+    "std": 8748.185845
    },
    "latency_p95_ms": {
-    "mean": 47928.2333,
-    "std": 23376.3396
+    "mean": 47928.233333,
+    "std": 23376.339584
    },
    "llm_calls_mean": {
-    "mean": 3.3694,
-    "std": 0.1043
+    "mean": 3.369369,
+    "std": 0.104287
    },
    "tool_calls_mean": {
-    "mean": 7.3514,
-    "std": 0.0584
+    "mean": 7.351351,
+    "std": 0.058385
    },
    "tokens_in_mean": {
-    "mean": 8986.1081,
-    "std": 477.603
+    "mean": 8986.108108,
+    "std": 477.602979
    },
    "tokens_out_mean": {
-    "mean": 1397.4414,
-    "std": 60.9991
+    "mean": 1397.441441,
+    "std": 60.999085
    },
    "cost_per_case_usd": {
-    "mean": null,
-    "std": null
+    "mean": 0.006189,
+    "std": 0.000292
    },
    "stability": {
     "mean": 0.9459,
@@ -398,7 +406,7 @@
   },
   "R": {
    "rec_accuracy": {
-    "mean": 0.8889,
+    "mean": 0.888889,
     "std": 0.0
    },
    "raw_rec_accuracy": {
@@ -406,7 +414,7 @@
     "std": null
    },
    "owner_accuracy": {
-    "mean": 0.8889,
+    "mean": 0.888889,
     "std": 0.0
    },
    "evidence_grounded_rate": {
@@ -486,23 +494,23 @@
     "std": 0.0
    },
    "all_checks_pass": {
-    "mean": 0.8889,
+    "mean": 0.888889,
     "std": 0.0
    },
    "latency_p50_ms": {
     "mean": 2.05,
-    "std": 0.2273
+    "std": 0.227303
    },
    "latency_p95_ms": {
-    "mean": 877.2833,
-    "std": 29.554
+    "mean": 877.283333,
+    "std": 29.554049
    },
    "llm_calls_mean": {
     "mean": 0.0,
     "std": 0.0
    },
    "tool_calls_mean": {
-    "mean": 5.9722,
+    "mean": 5.972222,
     "std": 0.0
    },
    "tokens_in_mean": {
@@ -514,8 +522,8 @@
     "std": 0.0
    },
    "cost_per_case_usd": {
-    "mean": null,
-    "std": null
+    "mean": 0.0,
+    "std": 0.0
    },
    "stability": {
     "mean": 1.0,
@@ -953,5 +961,20 @@
     "next owner Department Head not in ['Procurement', 'Requester']"
    ]
   }
- ]
+ ],
+ "comparison": {
+  "architectures": [
+   "A",
+   "B"
+  ],
+  "case_runs": 111,
+  "b_right_a_wrong": 8,
+  "a_right_b_wrong": 1,
+  "mcnemar_exact_p": 0.0391,
+  "cases": 37,
+  "cases_b_better": 4,
+  "cases_a_better": 1,
+  "case_sign_test_p": 0.375,
+  "note": "Runs of the same case are not independent, so the case-run test overstates certainty; the case-level sign test (mean correctness over runs per case) is the conservative view."
+ }
 }

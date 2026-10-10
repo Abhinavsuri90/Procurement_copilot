@@ -1,0 +1,8 @@
+{
+  "model": "google/gemini-2.5-flash",
+  "input_usd_per_1m_tokens": 0.30,
+  "output_usd_per_1m_tokens": 2.50,
+  "source": "https://openrouter.ai/api/v1/models (pricing.prompt / pricing.completion for google/gemini-2.5-flash)",
+  "fetched": "2026-10-09",
+  "note": "Output tokens include the model's reasoning tokens, which OpenRouter bills at the completion rate."
+}

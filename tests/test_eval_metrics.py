@@ -59,3 +59,24 @@ def test_decision_memo_is_at_most_500_words():
     text = (ROOT / "docs" / "DECISION_MEMO.md").read_text(encoding="utf-8")
     words = text.split()  # strict: table pipes and bullets count as words too
     assert len(words) <= 500, len(words)
+
+
+def test_exact_sign_test_matches_known_values():
+    from evals.metrics import _two_sided_sign_test
+
+    assert round(_two_sided_sign_test(1, 9), 4) == 0.0391  # 8 vs 1 discordant pairs
+    assert _two_sided_sign_test(1, 5) == 0.375  # 4 vs 1 cases
+    assert _two_sided_sign_test(0, 0) == 1.0
+
+
+def test_paired_comparison_counts_discordant_pairs_and_cases():
+    from evals.metrics import paired_comparison
+
+    def row(arch, case, run, ok):
+        return {"architecture": arch, "case_id": case, "run": run, "score": {"rec_correct": ok}}
+
+    rows = [row("A", "x", 1, False), row("B", "x", 1, True), row("A", "x", 2, False), row("B", "x", 2, True),
+            row("A", "y", 1, True), row("B", "y", 1, True), row("A", "y", 2, True), row("B", "y", 2, False)]
+    c = paired_comparison(rows)
+    assert (c["case_runs"], c["b_right_a_wrong"], c["a_right_b_wrong"]) == (4, 2, 1)
+    assert (c["cases_b_better"], c["cases_a_better"]) == (1, 1)

@@ -17,6 +17,7 @@ import dataclasses
 import json
 import sys
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,7 +26,7 @@ from typing import Any
 import yaml
 from fastapi.testclient import TestClient
 
-from evals.metrics import HEADLINE, aggregate, per_tag, run_metrics, score_case, stability
+from evals.metrics import HEADLINE, aggregate, paired_comparison, per_tag, run_metrics, score_case, stability
 from mock_api.app import create_app
 from src.agents.llm import LLMError, ScriptedBackend
 from src.agents.prompts import PROMPT_VERSION
@@ -37,6 +38,7 @@ from src.schemas import PurchaseRequest
 CASES_FILE = ROOT / "evals" / "cases.yaml"
 RESULTS = ROOT / "evals" / "results"
 RUNS = ROOT / "evals" / "runs"
+PRICING_FILE = ROOT / "evals" / "pricing.json"
 FAULTS = {None: None, "down": "down", "vendor_down": "down", "slow": "slow", "vendor_slow": "slow"}
 
 
@@ -81,10 +83,30 @@ def _rules_latency(settings, arch: str, case_id: str, run: int, decision: dict[s
         decision["meta"]["replayed"] = True
 
 
+def recorded_model(rows: list[dict], settings) -> str:
+    """The model that produced the runs (from the recordings in replay), not whatever .env says today."""
+    models = Counter(r["decision"]["meta"]["model"] for r in rows
+                     if r["architecture"] != "R" and r["decision"]["meta"].get("model"))
+    return models.most_common(1)[0][0] if models else settings.llm_model
+
+
+def resolve_prices(settings, model: str) -> tuple[float | None, float | None, dict[str, Any]]:
+    """PRICE_PER_1M_* env vars win; otherwise the committed, cited price list if it covers the model."""
+    if settings.price_in_per_1m is not None and settings.price_out_per_1m is not None:
+        return settings.price_in_per_1m, settings.price_out_per_1m, {"source": "PRICE_PER_1M_* environment variables"}
+    if PRICING_FILE.is_file():
+        pricing = json.loads(PRICING_FILE.read_text(encoding="utf-8"))
+        if pricing.get("model") == model:
+            return pricing["input_usd_per_1m_tokens"], pricing["output_usd_per_1m_tokens"], pricing
+    return None, None, {}
+
+
 def summarise(rows: list[dict], cases: list[dict], archs: list[str], runs: int, settings, workers: int,
               wall_s: float) -> dict[str, Any]:
     by_id = {c["id"]: c for c in cases}
-    prices = (settings.price_in_per_1m, settings.price_out_per_1m)
+    model = recorded_model(rows, settings)
+    price_in, price_out, pricing = resolve_prices(settings, model)
+    prices = (price_in, price_out)
     overall, tags, failures = {}, {}, []
     for arch in archs:
         arch_rows = [r for r in rows if r["architecture"] == arch]
@@ -107,10 +129,11 @@ def summarise(rows: list[dict], cases: list[dict], archs: list[str], runs: int, 
                          **{a: tags[a].get(t) for a in archs}} for t in all_tags}
     return {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "config": {"model": settings.llm_model, "llm_mode": settings.llm_mode, "temperature": settings.llm_temperature,
+        "config": {"model": model, "llm_mode": settings.llm_mode, "temperature": settings.llm_temperature,
+                   "pricing": pricing,
                    "prompt_version": PROMPT_VERSION, "runs": runs, "workers": workers, "cases": len(cases),
                    "architectures": archs, "as_of": settings.as_of.isoformat(), "wall_clock_s": round(wall_s, 1)},
-        "note": (f"{len(cases)} cases x {runs} run(s) per architecture, model {settings.llm_model}, temperature "
+        "note": (f"{len(cases)} cases x {runs} run(s) per architecture, model {model}, temperature "
                  f"{settings.llm_temperature}. "
                  + ("Regenerated offline from the recorded model exchanges: latency, tokens and call counts are the "
                     "values recorded during the live run (latency includes queueing at the provider). "
@@ -122,6 +145,7 @@ def summarise(rows: list[dict], cases: list[dict], archs: list[str], runs: int, 
         "overall": overall,
         "per_tag": per_tag_table,
         "failures": sorted(failures, key=lambda f: (f["architecture"], f["case_id"], f["run"])),
+        "comparison": paired_comparison(rows, "A", "B") if {"A", "B"} <= set(archs) else None,
     }
 
 
@@ -174,6 +198,22 @@ def write_markdown(summary: dict, path: Path) -> None:
     for m in summary["headline_metrics"]:
         lines.append(f"| {m['label']} | " + " | ".join(_fmt(summary["overall"][a].get(m["key"]), m["key"])
                                                       for a in archs) + " |")
+    comp = summary.get("comparison")
+    if comp:
+        cost = {a: (summary["overall"][a].get("cost_per_case_usd") or {}).get("mean") for a in archs}
+        price = summary["config"].get("pricing") or {}
+        lines += ["\n## A vs B: paired comparison\n", "| Test | Result |", "|---|---|",
+                  f"| Case-runs compared | {comp['case_runs']} |",
+                  f"| B right & A wrong / A right & B wrong | {comp['b_right_a_wrong']} / {comp['a_right_b_wrong']} |",
+                  f"| Exact McNemar test on case-runs | p = {comp['mcnemar_exact_p']:.3f} |",
+                  f"| Cases where B / A does better (mean over runs) | {comp['cases_b_better']} / {comp['cases_a_better']} "
+                  f"of {comp['cases']} |",
+                  f"| Sign test on cases (conservative) | p = {comp['case_sign_test_p']:.3f} |"]
+        if any(v is not None for v in cost.values()):
+            lines.append("| Estimated cost per 1,000 analyses | " + " · ".join(
+                f"{a} ${1000 * v:.2f}" for a, v in cost.items() if v is not None) + " |")
+        lines.append(f"\n{comp['note']}" + (f" Prices: {price.get('source')}, fetched {price.get('fetched')}."
+                                            if price.get("fetched") else ""))
     lines += ["\n## Final recommendation accuracy by category\n",
               "| Category | n | " + " | ".join(names[a] for a in archs) + " |", "|---|---:|" + "---:|" * len(archs)]
     for tag, row in summary["per_tag"].items():
@@ -257,8 +297,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check:
         committed = json.loads((RESULTS / "summary.json").read_text(encoding="utf-8"))
-        same = (committed["overall"] == summary["overall"] and committed["per_tag"] == summary["per_tag"]
-                and committed["failures"] == summary["failures"])
+        same = all(committed.get(key) == summary.get(key) for key in ("overall", "per_tag", "failures", "comparison"))
         print("REPLAY CHECK:", "results reproduce the committed summary exactly" if same else "MISMATCH")
         if not same:
             for arch in summary["overall"]:
