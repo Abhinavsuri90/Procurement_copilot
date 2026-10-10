@@ -229,3 +229,15 @@ def test_no_key_outage_demo_does_not_pretend_to_replay(tmp_path, monkeypatch):
                 case_key=("REQ-1001", 1)).decision
     assert d.meta.deterministic_only and not d.meta.replayed
     assert any("simulated fault" in w for w in d.meta.warnings)
+
+
+def test_next_step_action_name_matches_the_recommendation():
+    catalog = [{"id": "E1", "claim": "TaskFlow SW003 is approved company-wide", "source_tool": "search_existing_tools",
+                "call_id": "c3", "record_ids": ["SW003"], "value": ""}]
+    result, _ = run("REQ-1008", [gather("REQ-1008", "E001", "Marketing", 8000, "TaskFlow"),
+                                 submit(draft("use_existing_tool", evidence=catalog,
+                                              next_step={"action": "route_for_approval", "owner_role": "Procurement",
+                                                         "detail": "Allocate TaskFlow seats"}))])
+    step = result.decision.next_step
+    assert (step.action, step.owner_role, step.detail) == ("redirect_to_existing_tool", "Procurement",
+                                                           "Allocate TaskFlow seats")

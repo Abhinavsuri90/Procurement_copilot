@@ -188,6 +188,10 @@ def _decision_needed(rec: Recommendation, policy: PolicyResult) -> str:
     }[rec]
 
 
+CANONICAL_ACTIONS = {"route_for_approval", "redirect_to_existing_tool", "request_information", "escalate_for_review",
+                     "close_request"}
+
+
 def allowed_owners(rec: Recommendation, approvals: list[Approval]) -> set[str]:
     """Who can sensibly own the next step for each recommendation."""
     if rec == Recommendation.RECOMMEND_APPROVE:
@@ -333,7 +337,14 @@ def finalize(ctx: RunContext, draft: AgentDecisionDraft, facts: Facts, policy: P
         next_step = NextStep(**next_step_for(rec, policy))
         report["next_step_replaced"] = not overrides
     else:
-        next_step = NextStep(action=step.action, owner_role=step.owner_role, detail=step.detail)
+        # Keep the agent's owner and wording, but never an action name that belongs to another recommendation
+        # (e.g. "route_for_approval" on a redirect).
+        action = step.action.strip()
+        canonical = next_step_for(rec, policy)["action"]
+        if action != canonical and action in CANONICAL_ACTIONS:
+            report["next_step_action_normalised"] = {"from": action, "to": canonical}
+            action = canonical
+        next_step = NextStep(action=action, owner_role=step.owner_role, detail=step.detail)
 
     summary = " ".join(re.split(r"(?<=[.!?])\s+", draft.summary.strip())[:3])
     if overrides:

@@ -9764,7 +9764,7 @@
     }
    ],
    "next_step": {
-    "action": "route_for_approval",
+    "action": "redirect_to_existing_tool",
     "owner_role": "Procurement",
     "detail": "Procurement confirms and allocates the existing tool."
    },
@@ -9814,6 +9814,10 @@
      "evidence_grounded": 6,
      "ungrounded_removed": [],
      "deterministic_backfill": 2,
+     "next_step_action_normalised": {
+      "from": "route_for_approval",
+      "to": "redirect_to_existing_tool"
+     },
      "overrides": 0,
      "raw_policy_adherent": true
     }
@@ -10385,7 +10389,7 @@
     }
    ],
    "next_step": {
-    "action": "route_for_approval",
+    "action": "redirect_to_existing_tool",
     "owner_role": "Procurement",
     "detail": "Procurement confirms and allocates the existing tool."
    },
@@ -10435,6 +10439,10 @@
      "evidence_grounded": 6,
      "ungrounded_removed": [],
      "deterministic_backfill": 2,
+     "next_step_action_normalised": {
+      "from": "route_for_approval",
+      "to": "redirect_to_existing_tool"
+     },
      "overrides": 0,
      "raw_policy_adherent": true
     }
@@ -12510,7 +12518,7 @@
     }
    ],
    "next_step": {
-    "action": "route_for_approval",
+    "action": "escalate_for_review",
     "owner_role": "Manager",
     "detail": "Route to approvers in order: Manager"
    },
@@ -12558,6 +12566,10 @@
      "evidence_grounded": 6,
      "ungrounded_removed": [],
      "deterministic_backfill": 1,
+     "next_step_action_normalised": {
+      "from": "route_for_approval",
+      "to": "escalate_for_review"
+     },
      "overrides": 0,
      "raw_policy_adherent": true
     }
@@ -51261,7 +51273,7 @@
     }
    ],
    "next_step": {
-    "action": "route_for_approval",
+    "action": "redirect_to_existing_tool",
     "owner_role": "Procurement",
     "detail": "Procurement confirms and allocates the existing tool."
    },
@@ -51311,6 +51323,10 @@
      "evidence_grounded": 4,
      "ungrounded_removed": [],
      "deterministic_backfill": 4,
+     "next_step_action_normalised": {
+      "from": "route_for_approval",
+      "to": "redirect_to_existing_tool"
+     },
      "overrides": 0,
      "raw_policy_adherent": false
     }
@@ -58744,7 +58760,7 @@
     }
    ],
    "next_step": {
-    "action": "route_for_approval",
+    "action": "redirect_to_existing_tool",
     "owner_role": "Procurement",
     "detail": "Confirm MetricLoop can meet the stated need and allocate licenses."
    },
@@ -58793,6 +58809,10 @@
      "evidence_grounded": 3,
      "ungrounded_removed": [],
      "deterministic_backfill": 3,
+     "next_step_action_normalised": {
+      "from": "route_for_approval",
+      "to": "redirect_to_existing_tool"
+     },
      "overrides": 0,
      "raw_policy_adherent": false
     }
@@ -60435,7 +60455,7 @@
     }
    ],
    "next_step": {
-    "action": "route_for_approval",
+    "action": "redirect_to_existing_tool",
     "owner_role": "Procurement",
     "detail": "Procurement confirms and allocates existing licenses for SignFlow."
    },
@@ -60484,6 +60504,10 @@
      "evidence_grounded": 9,
      "ungrounded_removed": [],
      "deterministic_backfill": 1,
+     "next_step_action_normalised": {
+      "from": "route_for_approval",
+      "to": "redirect_to_existing_tool"
+     },
      "overrides": 0,
      "raw_policy_adherent": false
     }
@@ -61172,7 +61196,7 @@
     }
    ],
    "next_step": {
-    "action": "route_for_approval",
+    "action": "redirect_to_existing_tool",
     "owner_role": "Procurement",
     "detail": "Procurement confirms and allocates DocSpace (SW004) to the requester."
    },
@@ -61221,6 +61245,10 @@
      "evidence_grounded": 3,
      "ungrounded_removed": [],
      "deterministic_backfill": 3,
+     "next_step_action_normalised": {
+      "from": "route_for_approval",
+      "to": "redirect_to_existing_tool"
+     },
      "overrides": 0,
      "raw_policy_adherent": false
     }
@@ -61501,7 +61529,7 @@
     }
    ],
    "next_step": {
-    "action": "route_for_approval",
+    "action": "escalate_for_review",
     "owner_role": "Department Head",
     "detail": "Route to approvers in order: Department Head, Procurement"
    },
@@ -61552,6 +61580,10 @@
      "evidence_grounded": 4,
      "ungrounded_removed": [],
      "deterministic_backfill": 2,
+     "next_step_action_normalised": {
+      "from": "route_for_approval",
+      "to": "escalate_for_review"
+     },
      "overrides": 0,
      "raw_policy_adherent": true
     }
