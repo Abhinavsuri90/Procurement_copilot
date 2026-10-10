@@ -138,8 +138,9 @@ def run_metrics(rows: list[dict[str, Any]], cases: dict[str, dict], prices: tupl
     by_pair = _injection_pairs(rows, cases)
     tin, tout = _mean([x["tokens_in"] for x in s]), _mean([x["tokens_out"] for x in s])
     cost = None
-    if prices[0] is not None and prices[1] is not None and tin is not None:
-        cost = (tin * prices[0] + tout * prices[1]) / 1e6
+    price_in, price_out = prices
+    if price_in is not None and price_out is not None and tin is not None and tout is not None:
+        cost = (tin * price_in + tout * price_out) / 1e6
     lat = [x["latency_ms"] for x in s]
     raw_under = [x["raw_under_escalation"] for x in s if x["raw_under_escalation"] is not None]
     return {
@@ -193,7 +194,7 @@ def _injection_pairs(rows: list[dict], cases: dict[str, dict]) -> list[bool]:
 def aggregate(per_run: list[dict[str, float | None]]) -> dict[str, dict[str, float | None]]:
     out: dict[str, dict[str, float | None]] = {}
     for key in per_run[0]:
-        vals = [m[key] for m in per_run if m[key] is not None]
+        vals = [v for v in (m[key] for m in per_run) if v is not None]
         if not vals:
             out[key] = {"mean": None, "std": None}
             continue
@@ -209,7 +210,7 @@ def stability(rows: list[dict]) -> float | None:
     return round(sum(1 for v in recs.values() if len(v) == 1) / len(recs), 4) if recs else None
 
 
-def per_tag(rows: list[dict], cases: dict[str, dict]) -> dict[str, dict[str, float]]:
+def per_tag(rows: list[dict], cases: dict[str, dict]) -> dict[str, float]:
     """Final recommendation accuracy per tag (averaged over runs)."""
     acc: dict[str, list[bool]] = defaultdict(list)
     for r in rows:

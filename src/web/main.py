@@ -161,10 +161,11 @@ def human_action(request_id: str, body: HumanAction) -> dict[str, Any]:
     blocked = [a for a in run["policy"].get("blocks", [])] if run.get("policy") else []
     is_exception = False
     if body.action == "approve" and blocked:
-        if not (body.exception_reason or "").strip():
+        exception = (body.exception_reason or "").strip()
+        if not exception:
             raise HTTPException(422, "Policy blocks exist: approval requires an exception reason")
         is_exception = True
-        reason = f"{reason} [exception: {body.exception_reason.strip()}]".strip()
+        reason = f"{reason} [exception: {exception}]".strip()
     entry = store().add_action(request_id=request_id, run_id=run["run_id"], action=body.action,
                                reviewer_role=body.reviewer_role, reason=reason or None, ai_recommendation=rec,
                                architecture=decision["meta"]["architecture"], model=decision["meta"]["model"],

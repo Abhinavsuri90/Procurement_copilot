@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, cast
 
 from src.policy.engine import PolicyResult, next_step_for
 from src.policy.facts import Facts
@@ -36,6 +36,7 @@ from src.schemas import (
     Override,
     Recommendation,
     RiskFlag,
+    Severity,
 )
 from src.tools.base import RunContext
 from src.trace import Trace
@@ -99,7 +100,7 @@ def check_grounded(item: DraftEvidence, trace: Trace) -> str | None:
 def deterministic_evidence(trace: Trace, facts: Facts, policy_call_id: str | None) -> list[EvidenceItem]:
     items: list[EvidenceItem] = []
 
-    def add(call_id: str | None, claim: str, record_ids: list[str], value: str = "") -> None:
+    def add(call_id: str | None, claim: str, record_ids: list[str | None], value: str = "") -> None:
         if call_id and call_id in trace.tool_results:
             items.append(EvidenceItem(id=f"D{len(items) + 1}", claim=claim, source_tool=trace.tool_results[call_id].tool,
                                       call_id=call_id, record_ids=[r for r in record_ids if r], value=value,
@@ -158,7 +159,8 @@ def deterministic_evidence(trace: Trace, facts: Facts, policy_call_id: str | Non
 
 
 def _policy_flags(policy: PolicyResult) -> list[RiskFlag]:
-    return [RiskFlag(code=f.code, severity=f.severity, detail=f.detail, rule_id=f.rule_id) for f in policy.flags]
+    return [RiskFlag(code=f.code, severity=cast(Severity, f.severity), detail=f.detail, rule_id=f.rule_id)
+            for f in policy.flags]
 
 
 def _policy_approvals(policy: PolicyResult) -> list[Approval]:

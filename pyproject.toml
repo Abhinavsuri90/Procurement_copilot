@@ -24,3 +24,10 @@ ignore = ["E501", "UP042"]
 "verify_setup.py" = ["UP036"]
 "start.py" = ["UP036"]  # the version guard is the point: it runs before the venv exists
 "evals/run_public_evals.py" = ["E402", "E702"]  # starter harness, kept as provided
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "mock_api", "evals/run_eval.py", "evals/metrics.py"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true

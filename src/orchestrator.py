@@ -16,8 +16,6 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
-import httpx
-
 from src.agents.guardrails import deterministic_decision, finalize
 from src.agents.llm import Cassette, CassetteMismatch, LLMSession, OpenAICompatBackend
 from src.config import ROOT, Settings, get_settings
@@ -28,6 +26,7 @@ from src.runtime import make_context
 from src.schemas import Decision, PurchaseRequest
 from src.tools.base import RunContext, execute
 from src.trace import ToolResult
+from src.vendor_client import HttpGetter
 
 ARCH_ALIASES = {"a": "A", "single": "A", "b": "B", "staged": "B", "r": "R", "rules": "R"}
 ARCH_LABELS = {"A": "A-single-agent", "B": "B-staged-two-agent", "R": "R-rules-only"}
@@ -112,7 +111,7 @@ def make_session(settings: Settings, ctx: RunContext, arch: str, case_key: tuple
 
 
 def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Repository | None = None,
-            settings: Settings | None = None, fault: str | None = None, http: httpx.Client | None = None,
+            settings: Settings | None = None, fault: str | None = None, http: HttpGetter | None = None,
             case_key: tuple[str, int] | None = None, backend: Any = None) -> RunResult:
     """Analyse one request. `case_key=(case_id, run)` selects the cassette used for record/replay."""
     settings = settings or get_settings()
@@ -155,7 +154,7 @@ def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Reposito
     meta.tokens_in, meta.tokens_out = ctx.trace.tokens
     meta.replayed = bool(session and session.replaying)
     meta.latency_ms = round((time.perf_counter() - start) * 1000, 1)
-    if meta.replayed and session.cassette and session.cassette.run_latency_ms is not None:
+    if session is not None and meta.replayed and session.cassette and session.cassette.run_latency_ms is not None:
         meta.latency_ms = session.cassette.run_latency_ms  # report the recorded latency, not the replay's
     meta.warnings = warnings
     if session is not None and session.mode == "record" and session.cassette is not None:

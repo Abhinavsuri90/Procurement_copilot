@@ -12,12 +12,18 @@ import random
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 from urllib.parse import quote
 
 import httpx
 
 FAULTS = ("down", "slow", "flaky")
+
+
+class HttpGetter(Protocol):
+    """Anything with httpx's `get(url)`: an httpx.Client, or the mock service mounted in-process (TestClient)."""
+
+    def get(self, url: str) -> Any: ...
 
 
 @dataclass
@@ -36,7 +42,7 @@ class VendorClient:
         base_url: str,
         timeout_s: float = 3.0,
         retries: int = 2,
-        http: httpx.Client | None = None,
+        http: HttpGetter | None = None,
         sleep: Callable[[float], None] = time.sleep,
     ):
         self.base_url = base_url.rstrip("/")
@@ -45,7 +51,7 @@ class VendorClient:
         self._http = http
         self._sleep = sleep
 
-    def _client(self) -> httpx.Client:
+    def _client(self) -> HttpGetter:
         if self._http is None:
             self._http = httpx.Client(base_url=self.base_url, timeout=self.timeout_s)
         return self._http
