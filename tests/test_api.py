@@ -109,3 +109,24 @@ def test_ui_assets_keep_hidden_authoritative_and_default_to_shipped_architecture
     assert "[hidden] { display: none !important; }" in css  # grid/flex rules must not un-hide views or forms
     html = client.get("/").text
     assert '<option value="B" selected>' in html
+
+
+def test_oversized_input_is_rejected(client):
+    too_long = client.post("/api/requests", json={"requester_id": "E001", "product_name": "X", "vendor_name": "Y",
+                                                  "business_justification": "a" * 4001})
+    assert too_long.status_code == 422
+    too_many = client.post("/api/requests", json={"requester_id": "E001", "product_name": "X", "vendor_name": "Y",
+                                                  "requested_integrations": ["SSO"] * 21})
+    assert too_many.status_code == 422
+
+
+def test_structured_log_lines_are_json(caplog):
+    import json
+    import logging
+
+    from src.obs import JsonFormatter
+
+    record = logging.LogRecord("procurement", logging.INFO, __file__, 1, "analysis_completed", None, None)
+    record.fields = {"run_id": "abc", "recommendation": "recommend_approve"}
+    line = json.loads(JsonFormatter().format(record))
+    assert line["event"] == "analysis_completed" and line["run_id"] == "abc"

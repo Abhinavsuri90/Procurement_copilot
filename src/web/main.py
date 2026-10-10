@@ -5,16 +5,18 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from src.config import ROOT, get_settings
 from src.data_access import default_repository
+from src.obs import configure as configure_logging
+from src.obs import log_event
 from src.orchestrator import analyze, normalize_arch, representative_run
 from src.schemas import APPROVER_ROLES, PurchaseRequest, Recommendation
 from src.store import Store
@@ -33,6 +35,7 @@ CONSISTENT = {
 }
 
 app = FastAPI(title="Procurement Request Copilot", version="1.0")
+configure_logging()
 
 
 @lru_cache(maxsize=1)
@@ -51,24 +54,29 @@ def get_request_or_404(request_id: str) -> dict[str, Any]:
     return raw
 
 
+Short = Annotated[str, StringConstraints(max_length=200)]
+
+
 class NewRequest(BaseModel):
-    requester_id: str = Field(min_length=1)
-    product_name: str = Field(min_length=1)
-    vendor_name: str = Field(min_length=1)
-    category: str | None = None
-    annual_cost_usd: float | None = Field(default=None, ge=0)
-    user_count: int | None = Field(default=None, gt=0)
-    business_justification: str | None = None
-    data_access_level: str | None = None
-    requested_integrations: list[str] | None = None
-    urgency: str | None = "normal"
+    """Bounded input: oversized fields are rejected with 422 instead of being stored and sent to the model."""
+
+    requester_id: str = Field(min_length=1, max_length=32)
+    product_name: str = Field(min_length=1, max_length=200)
+    vendor_name: str = Field(min_length=1, max_length=200)
+    category: str | None = Field(default=None, max_length=120)
+    annual_cost_usd: float | None = Field(default=None, ge=0, le=100_000_000)
+    user_count: int | None = Field(default=None, gt=0, le=1_000_000)
+    business_justification: str | None = Field(default=None, max_length=4000)
+    data_access_level: str | None = Field(default=None, max_length=80)
+    requested_integrations: list[Short] | None = Field(default=None, max_length=20)
+    urgency: str | None = Field(default="normal", max_length=20)
 
 
 class HumanAction(BaseModel):
     action: Literal["approve", "reject", "request_info", "escalate"]
-    reviewer_role: str
-    reason: str | None = None
-    exception_reason: str | None = None
+    reviewer_role: str = Field(max_length=40)
+    reason: str | None = Field(default=None, max_length=2000)
+    exception_reason: str | None = Field(default=None, max_length=2000)
 
 
 @app.get("/api/health")
@@ -170,6 +178,9 @@ def human_action(request_id: str, body: HumanAction) -> dict[str, Any]:
                                reviewer_role=body.reviewer_role, reason=reason or None, ai_recommendation=rec,
                                architecture=decision["meta"]["architecture"], model=decision["meta"]["model"],
                                is_override=int(is_override), is_exception=int(is_exception))
+    log_event("human_action", request_id=request_id, run_id=run["run_id"], action=body.action,
+              reviewer_role=body.reviewer_role, is_override=is_override, is_exception=is_exception,
+              status=store().status(request_id))
     return {"action": entry, "status": store().status(request_id),
             "signoffs": {k: v for k, v in store().signoffs(request_id, run).items() if k != "actions"}}
 

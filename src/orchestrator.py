@@ -20,6 +20,7 @@ from src.agents.guardrails import deterministic_decision, finalize
 from src.agents.llm import Cassette, CassetteMismatch, LLMSession, OpenAICompatBackend
 from src.config import ROOT, Settings, get_settings
 from src.data_access import Repository
+from src.obs import log_event
 from src.policy.engine import PolicyResult, evaluate
 from src.policy.facts import Facts, collect_facts
 from src.runtime import make_context
@@ -160,7 +161,13 @@ def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Reposito
     if session is not None and session.mode == "record" and session.cassette is not None:
         session.cassette.run_latency_ms = meta.latency_ms
         session.cassette.save()
-    return RunResult(run_id=uuid.uuid4().hex[:12], decision=decision, trace=ctx.trace.dump(), raw_output=raw,
+    run_id = uuid.uuid4().hex[:12]
+    log_event("analysis_completed", run_id=run_id, request_id=request.request_id, architecture=meta.architecture,
+              model=meta.model, recommendation=decision.recommendation.value,
+              handoff_required=decision.human_handoff.required, overrides=len(decision.overrides),
+              llm_calls=meta.llm_calls, tool_calls=meta.tool_calls, latency_ms=meta.latency_ms,
+              replayed=meta.replayed, deterministic_only=meta.deterministic_only, warnings=len(meta.warnings))
+    return RunResult(run_id=run_id, decision=decision, trace=ctx.trace.dump(), raw_output=raw,
                      policy=policy.model_dump(mode="json"))
 
 
