@@ -58,6 +58,7 @@ const statusClass = (s) => ({"Approved": "ok", "Rejected": "bad", "Awaiting huma
 
 // ---------------------------------------------------------------- request detail
 async function selectRequest(id) {
+  if (state.selected !== id) $("#live").hidden = true;
   state.selected = id;
   if (location.hash !== "#" + id) history.replaceState(null, "", "#" + encodeURIComponent(id));
   renderQueue();
@@ -189,22 +190,64 @@ function setWorkflow(active) {
 }
 
 // ---------------------------------------------------------------- actions
+// ---------------------------------------------------------------- live run progress
+const PHASE_LABEL = {request: "Request recorded (tool result c0)", understand: "Understanding the need",
+  evidence: "Gathering evidence", recommend: "Policy engine + guardrails check the draft", done: "Decision ready for human review"};
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function liveLine(ev) {
+  const t = `<time>${(ev.t_ms / 1000).toFixed(1)}s</time>`;
+  if (ev.kind === "phase") return `<li class="phase">${t} ▶ ${esc(PHASE_LABEL[ev.phase] || ev.phase)}${ev.recommendation ? `: <b>${esc(REC_LABEL[ev.recommendation] || ev.recommendation)}</b>` : ""}</li>`;
+  if (ev.kind === "llm_start") return `<li class="muted">${t} … ${esc(ev.agent)} thinking (turn ${ev.turn})${ev.replay ? " — replayed" : ""}</li>`;
+  if (ev.kind === "llm") return `<li>${t} ${ev.ok ? "✓" : "✗"} ${esc(ev.agent)} turn ${ev.turn} → ${esc((ev.tool_calls || []).join(", ") || "text")} <span class="small">${Math.round(ev.latency_ms)} ms · ${ev.tokens_in}/${ev.tokens_out} tok</span></li>`;
+  if (ev.kind === "tool" && ev.tool !== "purchase_request") return `<li>${t} ${ev.ok ? "✓" : "✗"} <code>${esc(ev.call_id)}</code> ${esc(ev.tool)} <span class="small">by ${esc(ev.caller)} · ${Math.round(ev.latency_ms)} ms${ev.error ? " · " + esc(ev.error) : ""}</span></li>`;
+  return "";
+}
+
+function stepFor(ev, current) {
+  if (ev.kind === "phase") return ev.phase === "done" ? "human" : (ev.phase === "request" ? "request" : ev.phase);
+  if (ev.kind === "tool" && ev.tool !== "purchase_request" && STEPS.indexOf(current) < STEPS.indexOf("evidence")) return "evidence";
+  return current;
+}
+
 async function runCopilot() {
   const id = state.selected;
   const arch = $("#arch").value;
   const fault = $("#outage").checked ? "&fault=down" : "";
   $("#run-btn").disabled = true;
   $("#run-btn").textContent = "Running…";
-  setWorkflow("understand");
-  const timer = setTimeout(() => setWorkflow("evidence"), 600);
+  $("#live").hidden = false;
+  $("#live-spinner").hidden = false;
+  $("#live-title").textContent = "Running the copilot…";
+  $("#live-meta").textContent = `architecture ${arch}${fault ? " · simulated vendor outage" : ""}`;
+  $("#live-log").innerHTML = "";
+  let step = "request";
+  setWorkflow(step);
   try {
-    const res = await api(`/api/requests/${encodeURIComponent(id)}/analyze?arch=${arch}${fault}`, {method: "POST"});
-    clearTimeout(timer);
-    setWorkflow("recommend");
+    const started = await api(`/api/requests/${encodeURIComponent(id)}/analyze?arch=${arch}${fault}&stream=true`, {method: "POST"});
+    let after = 0;
+    for (;;) {
+      const p = await api(`/api/runs/${started.run_id}/progress?after=${after}`);
+      after = p.next;
+      for (const ev of p.events) {
+        $("#live-log").insertAdjacentHTML("beforeend", liveLine(ev));
+        step = stepFor(ev, step);
+      }
+      setWorkflow(step);
+      $("#live-log").scrollTop = $("#live-log").scrollHeight;
+      if (p.done) {
+        if (p.error) throw new Error(p.error);
+        break;
+      }
+      await sleep(400);
+    }
+    $("#live-title").textContent = "Run complete";
+    $("#live-spinner").hidden = true;
     await loadQueue();
     await selectRequest(id);
   } catch (e) {
-    clearTimeout(timer);
+    $("#live-title").textContent = "Run failed";
+    $("#live-spinner").hidden = true;
     $("#decision-body").hidden = false;
     $("#decision-body").innerHTML = `<div class="banner bad">Analysis failed: ${esc(e.message)}</div>`;
     setWorkflow("request");

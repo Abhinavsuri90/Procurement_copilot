@@ -58,6 +58,11 @@
         <span class="chip" id="req-status"></span>
         <button id="run-btn" class="btn primary">Run copilot</button>
       </div>
+      <section id="live" class="live" hidden aria-label="Live run activity">
+        <div class="live-head"><span class="spinner" id="live-spinner"></span><b id="live-title">Running…</b>
+          <span class="small" id="live-meta"></span></div>
+        <ol id="live-log" class="live-log" aria-live="polite"></ol>
+      </section>
       <div class="subtabs" role="tablist">
         <button role="tab" class="subtab active" data-tab="details">Request details</button>
         <button role="tab" class="subtab" data-tab="trace">Trace</button>

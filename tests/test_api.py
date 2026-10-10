@@ -130,3 +130,26 @@ def test_structured_log_lines_are_json(caplog):
     record.fields = {"run_id": "abc", "recommendation": "recommend_approve"}
     line = json.loads(JsonFormatter().format(record))
     assert line["event"] == "analysis_completed" and line["run_id"] == "abc"
+
+
+def test_streamed_analysis_reports_live_progress_then_persists_the_run(client):
+    import time as _time
+
+    started = client.post("/api/requests/REQ-1007/analyze?arch=B&stream=true").json()
+    assert started["status"] == "running"
+    run_id, after, events, body = started["run_id"], 0, [], {}
+    deadline = _time.monotonic() + 15
+    while _time.monotonic() < deadline:
+        body = client.get(f"/api/runs/{run_id}/progress?after={after}").json()
+        events += body["events"]
+        after = body["next"]
+        if body["done"]:
+            break
+        _time.sleep(0.05)
+    assert body["done"] and body["error"] is None and body["status"] == "Awaiting human"
+    phases = [e["phase"] for e in events if e["kind"] == "phase"]
+    assert phases[0] == "request" and phases[-1] == "done" and "recommend" in phases
+    assert any(e["kind"] == "tool" and e["tool"] == "get_vendor_risk" for e in events)
+    assert all("t_ms" in e for e in events)
+    assert client.get(f"/api/runs/{run_id}").json()["decision"]["recommendation"] == "escalate_to_human"
+    assert client.get("/api/runs/nope/progress").status_code == 404

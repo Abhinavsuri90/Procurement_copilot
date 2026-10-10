@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
+import uuid
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -117,8 +120,33 @@ def request_detail(request_id: str) -> dict[str, Any]:
             "signoffs": {k: v for k, v in store().signoffs(request_id, run).items() if k != "actions"} if run else None}
 
 
-@app.post("/api/requests/{request_id}/analyze")
-def run_analysis(request_id: str, arch: str = Query("B"), fault: str | None = Query(None)) -> dict[str, Any]:
+class Progress:
+    """Live events of one background analysis, read by the UI while the run is in flight."""
+
+    def __init__(self, request_id: str) -> None:
+        self.request_id = request_id
+        self.events: list[dict[str, Any]] = []
+        self.done = False
+        self.error: str | None = None
+        self._lock = threading.Lock()
+
+    def add(self, event: dict[str, Any]) -> None:
+        with self._lock:
+            self.events.append({**event, "t_ms": round((time.perf_counter() - self._t0) * 1000)})
+
+    def start(self) -> None:
+        self._t0 = time.perf_counter()
+
+    def snapshot(self, after: int) -> tuple[list[dict[str, Any]], int]:
+        with self._lock:
+            return self.events[after:], len(self.events)
+
+
+PROGRESS: dict[str, Progress] = {}
+MAX_TRACKED_RUNS = 200
+
+
+def _validated(request_id: str, arch: str, fault: str | None) -> tuple[dict[str, Any], str]:
     raw = get_request_or_404(request_id)
     try:
         arch = normalize_arch(arch)
@@ -126,11 +154,57 @@ def run_analysis(request_id: str, arch: str = Query("B"), fault: str | None = Qu
         raise HTTPException(400, str(exc)) from exc
     if fault not in (None, "", "down", "slow", "flaky"):
         raise HTTPException(400, "fault must be down, slow or flaky")
+    return raw, arch
+
+
+def _run_and_store(request_id: str, raw: dict[str, Any], arch: str, fault: str | None, run_id: str | None = None,
+                   on_event: Any = None) -> dict[str, Any]:
     result = analyze(PurchaseRequest.from_raw(raw), arch, case_key=(request_id, representative_run(arch, request_id)),
-                     fault=fault or None)
+                     fault=fault or None, on_event=on_event, run_id=run_id)
     decision = result.decision.model_dump(mode="json")
     store().add_run(result.run_id, request_id, arch, decision, result.trace, result.raw_output, result.policy)
     return {"run_id": result.run_id, "decision": decision, "trace": result.trace, "status": store().status(request_id)}
+
+
+@app.post("/api/requests/{request_id}/analyze")
+def run_analysis(request_id: str, arch: str = Query("B"), fault: str | None = Query(None),
+                 stream: bool = Query(False)) -> dict[str, Any]:
+    """Run the copilot. With `stream=true` the run happens in the background and returns its run_id at once;
+    poll /api/runs/{run_id}/progress for live phases, model and tool calls."""
+    raw, arch = _validated(request_id, arch, fault)
+    if not stream:
+        return _run_and_store(request_id, raw, arch, fault)
+    run_id = uuid.uuid4().hex[:12]
+    progress = Progress(request_id)
+    progress.start()
+    if len(PROGRESS) >= MAX_TRACKED_RUNS:  # keep memory bounded: forget the oldest finished runs
+        for key in [k for k, p in PROGRESS.items() if p.done][: MAX_TRACKED_RUNS // 2]:
+            PROGRESS.pop(key, None)
+    PROGRESS[run_id] = progress
+
+    def work() -> None:
+        try:
+            _run_and_store(request_id, raw, arch, fault, run_id=run_id, on_event=progress.add)
+        except Exception as exc:  # surfaced to the UI; the request stays unchanged
+            progress.error = f"{type(exc).__name__}: {exc}"
+            log_event("analysis_failed", run_id=run_id, request_id=request_id, error=progress.error)
+        finally:
+            progress.done = True
+
+    threading.Thread(target=work, name=f"analysis-{run_id}", daemon=True).start()
+    return {"run_id": run_id, "status": "running"}
+
+
+@app.get("/api/runs/{run_id}/progress")
+def run_progress(run_id: str, after: int = Query(0, ge=0)) -> dict[str, Any]:
+    progress = PROGRESS.get(run_id)
+    if progress is None:
+        if store().run(run_id) is not None:  # finished before this process tracked it (e.g. after a restart)
+            return {"run_id": run_id, "events": [], "next": after, "done": True, "error": None}
+        raise HTTPException(404, f"Unknown run '{run_id}'")
+    events, nxt = progress.snapshot(after)
+    return {"run_id": run_id, "events": events, "next": nxt, "done": progress.done, "error": progress.error,
+            "status": store().status(progress.request_id) if progress.done else "running"}
 
 
 @app.get("/api/runs/{run_id}")

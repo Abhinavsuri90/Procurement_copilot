@@ -159,6 +159,7 @@ class LLMSession:
         body = build_body(self.model, messages, tools, self.temperature)
         digest = body_hash(body)
         call_id = self.trace.next_llm_id()
+        self.trace.emit("llm_start", call_id=call_id, agent=agent, turn=turn, replay=self.replaying)
         try:
             if self.replaying:
                 resp = self._replay(digest)

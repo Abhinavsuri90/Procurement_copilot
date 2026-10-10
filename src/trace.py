@@ -3,6 +3,7 @@ byte-stable across runs (no timestamps or random IDs reach the model)."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -52,12 +53,21 @@ class TraceEvent(BaseModel):
 
 
 class Trace:
-    def __init__(self) -> None:
+    def __init__(self, listener: Callable[[dict[str, Any]], None] | None = None) -> None:
         self.events: list[TraceEvent] = []
         self.tool_results: dict[str, ToolResult] = {}
         self.llm_calls: list[LLMCall] = []
         self._tool_seq = 0
         self._llm_seq = 0
+        self.listener = listener  # live-progress callback (UI streaming); observes, never alters, the run
+
+    def emit(self, kind: str, **payload: Any) -> None:
+        """Progress-only event (phase changes, model call started); not part of the persisted trace."""
+        if self.listener is not None:
+            try:
+                self.listener({"kind": kind, **payload})
+            except Exception:  # a broken progress consumer must never break the analysis itself
+                self.listener = None
 
     def next_tool_id(self) -> str:
         self._tool_seq += 1
@@ -70,10 +80,15 @@ class Trace:
     def add_tool(self, result: ToolResult) -> None:
         self.tool_results[result.call_id] = result
         self.events.append(TraceEvent(kind="tool", payload=result.model_dump()))
+        self.emit("tool", call_id=result.call_id, tool=result.tool, caller=result.caller, ok=result.ok,
+                  latency_ms=result.latency_ms, error=result.error.code if result.error else None)
 
     def add_llm(self, call: LLMCall) -> None:
         self.llm_calls.append(call)
         self.events.append(TraceEvent(kind="llm", payload=call.model_dump()))
+        self.emit("llm", call_id=call.call_id, agent=call.agent, turn=call.turn, ok=call.ok,
+                  latency_ms=call.latency_ms, tokens_in=call.tokens_in, tokens_out=call.tokens_out,
+                  tool_calls=call.tool_calls, replayed=call.replayed)
 
     def note(self, message: str, **extra: Any) -> None:
         self.events.append(TraceEvent(kind="note", payload={"message": message, **extra}))

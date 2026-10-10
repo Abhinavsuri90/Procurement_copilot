@@ -12,6 +12,7 @@ import json
 import time
 import uuid
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
@@ -113,12 +114,17 @@ def make_session(settings: Settings, ctx: RunContext, arch: str, case_key: tuple
 
 def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Repository | None = None,
             settings: Settings | None = None, fault: str | None = None, http: HttpGetter | None = None,
-            case_key: tuple[str, int] | None = None, backend: Any = None) -> RunResult:
-    """Analyse one request. `case_key=(case_id, run)` selects the cassette used for record/replay."""
+            case_key: tuple[str, int] | None = None, backend: Any = None,
+            on_event: Callable[[dict[str, Any]], None] | None = None, run_id: str | None = None) -> RunResult:
+    """Analyse one request. `case_key=(case_id, run)` selects the cassette used for record/replay;
+    `on_event` receives live progress (phases, model and tool calls) for the UI."""
     settings = settings or get_settings()
     arch = normalize_arch(architecture)
     ctx = make_context(request, repo=repo, settings=settings, fault=fault, http=http)
+    ctx.trace.listener = on_event
+    ctx.trace.emit("phase", phase="request", architecture=ARCH_LABELS[arch])
     _record_request(ctx)
+    ctx.trace.emit("phase", phase="understand")
     start = time.perf_counter()
     warnings: list[str] = list(request.parse_warnings)
     raw: dict[str, Any] | None = None
@@ -126,6 +132,7 @@ def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Reposito
     model = "rules-only"
 
     if arch == "R":
+        ctx.trace.emit("phase", phase="evidence")
         facts, policy, policy_cid = _policy(ctx)
         decision = deterministic_decision(ctx, facts, policy, policy_cid, architecture=ARCH_LABELS[arch], model=model)
     else:
@@ -139,6 +146,7 @@ def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Reposito
                 failure = f"ai_unavailable: {exc}"
                 warnings.append(str(exc))
                 session = None  # nothing was replayed: report this run's own latency and replayed=False
+        ctx.trace.emit("phase", phase="recommend")
         facts, policy, policy_cid = _policy(ctx)
         if draft is None:
             decision = deterministic_decision(ctx, facts, policy, policy_cid, architecture=ARCH_LABELS[arch],
@@ -161,7 +169,8 @@ def analyze(request: PurchaseRequest, architecture: str = "A", *, repo: Reposito
     if session is not None and session.mode == "record" and session.cassette is not None:
         session.cassette.run_latency_ms = meta.latency_ms
         session.cassette.save()
-    run_id = uuid.uuid4().hex[:12]
+    run_id = run_id or uuid.uuid4().hex[:12]
+    ctx.trace.emit("phase", phase="done", recommendation=decision.recommendation.value)
     log_event("analysis_completed", run_id=run_id, request_id=request.request_id, architecture=meta.architecture,
               model=meta.model, recommendation=decision.recommendation.value,
               handoff_required=decision.human_handoff.required, overrides=len(decision.overrides),
