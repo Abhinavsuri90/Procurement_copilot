@@ -8,7 +8,8 @@ requires-python = ">=3.11"
 # The starter tests import `mock_api` and `src` as top-level packages; bare `pytest` only puts tests/ on sys.path.
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra -m 'not e2e'"
+markers = ["e2e: browser end-to-end tests (need Playwright and a Chromium; run with -m e2e)"]
 filterwarnings = ["ignore::DeprecationWarning", "ignore:You should not use the .timeout. argument", "ignore:Using .httpx. with"]
 
 [tool.ruff]
